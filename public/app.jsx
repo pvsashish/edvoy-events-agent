@@ -454,6 +454,7 @@ function App() {
   const [history, setHistory]              = useState([]);
   const [historyPage, setHistoryPage]      = useState(1);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [validatorInput, setValidatorInput]       = useState('');
   
   const fileRef                            = useRef();
   const resultsRef                         = useRef();
@@ -537,11 +538,20 @@ function App() {
   };
 
   const addFiles = useCallback(async files => {
-    const list = Array.from(files).filter(f =>
-      f.type.startsWith('image/') || f.type.startsWith('video/')
-    );
-    if (!list.length) return;
+    const all = Array.from(files);
+    const list = all.filter(f => {
+      // Primary check: MIME type
+      if (f.type.startsWith('image/') || f.type.startsWith('video/')) return true;
+      // Fallback: file extension (handles cases where browser reports wrong MIME type)
+      const ext = f.name.split('.').pop().toLowerCase();
+      return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'mp4', 'mov', 'avi', 'mkv', 'webm'].includes(ext);
+    });
+    if (!list.length) {
+      if (all.length > 0) setError('Unsupported file type. Please upload PNG, JPG, GIF, WebP, MP4, or MOV files.');
+      return;
+    }
     setProcessing(true);
+    setError('');
 
     const items = await Promise.all(list.map(async file => {
       const id = Math.random().toString(36).slice(2);
@@ -1208,6 +1218,12 @@ function App() {
                   {loading ? 'Analyzing Screenshots…' : (isSameAttachments ? 'Spec Already Generated' : 'Generate Event Spec')}
                 </button>
 
+                {isSameAttachments && !loading && (
+                  <p style={{ fontSize: 11.5, color: T.t400, textAlign: 'center', marginTop: -4, lineHeight: 1.5 }}>
+                    Attachments unchanged — modify files or context to regenerate.
+                  </p>
+                )}
+
                 {error && (
                   <div style={{
                     background: T.red50, border: `1px solid ${T.red200}`,
@@ -1713,7 +1729,77 @@ function App() {
              TAB 3: Naming Guidelines
           ───────────────────────────────────────── */}
           {activeTab === 'guidelines' && (
-            <div className="fade-in" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+            <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+              {/* ── Inline Naming Validator ── */}
+              {(() => {
+                const trimmed = validatorInput.trim();
+                const validErr = trimmed ? getValidationError(trimmed, 'event', platform, null) : null;
+                const snaked = trimmed ? toSnakeCase(trimmed) : '';
+                const isValid = !!(trimmed && !validErr);
+                const showSuggestion = !!(trimmed && snaked && snaked !== trimmed);
+                return (
+                  <div style={cardStyle}>
+                    <div style={cardLabel}>Inline Naming Validator</div>
+                    <p style={{ fontSize: 12.5, color: T.t500, marginBottom: 14, lineHeight: 1.5 }}>
+                      Test any event or parameter name against Edvoy naming conventions in real-time.
+                    </p>
+                    <input
+                      type="text"
+                      value={validatorInput}
+                      onChange={e => setValidatorInput(e.target.value)}
+                      placeholder="Type an event name, e.g. counsellor_booking_clicked"
+                      style={{
+                        width: '100%',
+                        border: `1px solid ${trimmed ? (isValid ? T.green200 : T.red200) : T.border}`,
+                        borderRadius: 8, color: T.t900, padding: '10px 14px',
+                        fontSize: 13, outline: 'none', transition: 'all 0.15s',
+                        background: trimmed ? (isValid ? T.green50 : T.red50) : T.bg,
+                        boxShadow: trimmed ? (isValid ? '0 0 0 3px rgba(16,185,129,0.1)' : '0 0 0 3px rgba(220,38,38,0.08)') : 'none',
+                        fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
+                        marginBottom: trimmed ? 10 : 0,
+                      }}
+                    />
+                    {trimmed && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {isValid ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: T.green700, fontWeight: 600 }}>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            Valid — ready to use
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: T.red700, fontWeight: 600 }}>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            {validErr}
+                          </div>
+                        )}
+                        {showSuggestion && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: T.t500 }}>
+                            <span>Suggested fix:</span>
+                            <button
+                              onClick={() => setValidatorInput(snaked)}
+                              style={{
+                                background: T.purple50, border: `1px solid ${T.purple200}`, borderRadius: 5,
+                                padding: '3px 10px', fontSize: 12, fontWeight: 700, color: T.purple700,
+                                cursor: 'pointer', fontFamily: "'SF Mono', 'Fira Code', monospace",
+                                transition: 'all 0.15s',
+                              }}
+                              onMouseEnter={el => el.currentTarget.style.background = T.purple100}
+                              onMouseLeave={el => el.currentTarget.style.background = T.purple50}
+                            >
+                              {snaked}
+                            </button>
+                            <span style={{ fontSize: 11, color: T.t400 }}>(click to apply)</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* ── Guidelines Grid ── */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
               
               {/* GA4 Guidelines */}
               <div style={cardStyle}>
@@ -1789,6 +1875,7 @@ function App() {
                 </div>
               </div>
 
+              </div>
             </div>
           )}
 
