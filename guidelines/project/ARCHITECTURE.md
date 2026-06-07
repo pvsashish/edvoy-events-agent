@@ -15,7 +15,7 @@ Edvoy product managers and analytics team.
 | Backend | Vercel serverless functions (Node.js ESM) |
 | AI | Groq API — `meta-llama/llama-4-scout-17b-16e-instruct` (vision) |
 | Hosting | Vercel (static from `public/` + serverless from `api/`) |
-| Storage | GitHub repo |
+| Storage | Neon PostgreSQL (via DATABASE_URL) |
 
 ## File Structure
 ```
