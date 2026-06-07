@@ -13,3 +13,6 @@
 | Naming Guidelines Tab | — | complete | `public/app.jsx`, `public/index.html` |
 | Inline Naming Validator | — | complete | `public/app.jsx` (getValidationError fn) |
 | Workspace Reset Tool | — | complete | `public/app.jsx` (resetWorkspace fn) |
+| Specs History Pagination | — | complete | `public/app.jsx` (historyPage pagination integration) |
+| Duplicate Generation Prevention | — | complete | `public/app.jsx` (generatedAttachments state lock) |
+
