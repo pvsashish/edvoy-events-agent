@@ -1069,7 +1069,8 @@ function App() {
                         style={{ width: 13, height: 13, borderRadius: 2, filter: platform === 'ga4' ? 'none' : 'grayscale(100%) opacity(0.6)' }} 
                         alt=""
                       />
-                      Google Analytics 4
+                      <span className="desktop-only">Google Analytics 4</span>
+                      <span className="mobile-only">GA4</span>
                     </button>
                     <button
                       onClick={() => handlePlatformChange('amplitude')}
@@ -1192,21 +1193,21 @@ function App() {
                 {/* Generate Spec Action */}
                 <button
                   onClick={analyze}
-                  disabled={loading || processing || isSameAttachments}
+                  disabled={loading || processing || isSameAttachments || attachments.length === 0}
                   className="btn-active-shrink gradient-shine-btn"
                   style={{
                     padding: '12px 24px',
-                    background: (loading || processing || isSameAttachments) ? T.border : T.grad,
-                    color: (loading || processing || isSameAttachments) ? T.t400 : '#fff',
+                    background: (loading || processing || isSameAttachments || attachments.length === 0) ? T.border : T.grad,
+                    color: (loading || processing || isSameAttachments || attachments.length === 0) ? T.t400 : '#fff',
                     border: 'none', borderRadius: 10,
                     fontSize: 13, fontWeight: 700,
-                    cursor: (loading || processing || isSameAttachments) ? 'not-allowed' : 'pointer',
+                    cursor: (loading || processing || isSameAttachments || attachments.length === 0) ? 'not-allowed' : 'pointer',
                     transition: 'all 0.15s',
-                    boxShadow: (loading || processing || isSameAttachments) ? 'none' : '0 4px 14px rgba(156, 32, 215, 0.25)',
+                    boxShadow: (loading || processing || isSameAttachments || attachments.length === 0) ? 'none' : '0 4px 14px rgba(156, 32, 215, 0.25)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                   }}
-                  onMouseEnter={e => { if (!loading && !processing && !isSameAttachments) e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                  onMouseLeave={e => { if (!loading && !processing && !isSameAttachments) e.currentTarget.style.transform = 'translateY(0)'; }}
+                  onMouseEnter={e => { if (!loading && !processing && !isSameAttachments && attachments.length > 0) e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                  onMouseLeave={e => { if (!loading && !processing && !isSameAttachments && attachments.length > 0) e.currentTarget.style.transform = 'translateY(0)'; }}
                 >
                   {loading ? (
                     <div style={spinStyle}>
