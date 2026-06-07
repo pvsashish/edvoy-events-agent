@@ -456,14 +456,27 @@ function App() {
   const fileRef                            = useRef();
   const resultsRef                         = useRef();
 
-  // Load Saved Specs on Init
+  // Load Saved Specs on Init (DB with Local Storage fallback)
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('edvoy_specs_history');
-      if (stored) setHistory(JSON.parse(stored));
-    } catch (e) {
-      console.error('Failed to parse history', e);
-    }
+    const loadInit = async () => {
+      try {
+        const res = await fetch('/api/history');
+        if (!res.ok) throw new Error('DB fetch failed');
+        const data = await res.json();
+        if (data.warning) {
+          console.warn(data.warning);
+          const stored = localStorage.getItem('edvoy_specs_history');
+          if (stored) setHistory(JSON.parse(stored));
+        } else {
+          setHistory(data.history || []);
+        }
+      } catch (e) {
+        console.error('Failed to load history from DB, falling back to localStorage:', e);
+        const stored = localStorage.getItem('edvoy_specs_history');
+        if (stored) setHistory(JSON.parse(stored));
+      }
+    };
+    loadInit();
   }, []);
 
   // Keep history page in bounds when items are deleted
@@ -474,10 +487,25 @@ function App() {
     }
   }, [history.length, historyPage]);
 
-  // Sync History to localStorage
-  const saveHistory = (updated) => {
+  // Sync History to localStorage + DB
+  const saveHistory = async (updated, newItem = null) => {
     setHistory(updated);
-    localStorage.setItem('edvoy_specs_history', JSON.stringify(updated));
+    try {
+      localStorage.setItem('edvoy_specs_history', JSON.stringify(updated));
+    } catch (e) {
+      console.error('Failed to write to localStorage', e);
+    }
+    if (newItem) {
+      try {
+        await fetch('/api/history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ item: newItem }),
+        });
+      } catch (e) {
+        console.error('Failed to save history item to DB', e);
+      }
+    }
   };
 
   const handlePlatformChange = (newPlatform) => {
@@ -565,7 +593,7 @@ function App() {
           events: newEvents,
           featureContext
         };
-        saveHistory([newRecord, ...history]);
+        saveHistory([newRecord, ...history], newRecord);
       }
 
       // Scroll to results
@@ -641,16 +669,34 @@ function App() {
     setError('');
   };
 
-  const deleteHistoryItem = (id, e) => {
+  const deleteHistoryItem = async (id, e) => {
     e.stopPropagation();
     const next = history.filter(h => h.id !== id);
     saveHistory(next);
+    try {
+      await fetch('/api/history', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+    } catch (err) {
+      console.error('Failed to delete history item from DB', err);
+    }
   };
 
-  const clearAllHistory = () => {
-    if (confirm('Are you sure you want to clear your local specs history?')) {
+  const clearAllHistory = async () => {
+    if (confirm('Are you sure you want to clear your local and cloud specs history?')) {
       saveHistory([]);
       setHistoryPage(1);
+      try {
+        await fetch('/api/history', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clearAll: true }),
+        });
+      } catch (err) {
+        console.error('Failed to clear history from DB', err);
+      }
     }
   };
 

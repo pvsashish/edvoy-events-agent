@@ -6,7 +6,8 @@
     "dev": "npx vercel@latest dev"
   },
   "dependencies": {
-    "groq-sdk": "^0.9.1"
+    "groq-sdk": "^0.9.1",
+    "pg": "^8.21.0"
   },
   "devDependencies": {
     "vercel": "^34.0.0"
