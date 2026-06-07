@@ -1062,6 +1062,8 @@ function App() {
                         zIndex: 2,
                         position: 'relative',
                         fontFamily: 'var(--font-display)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
                       }}
                     >
                       <img 
@@ -1083,6 +1085,8 @@ function App() {
                         zIndex: 2,
                         position: 'relative',
                         fontFamily: 'var(--font-display)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
                       }}
                     >
                       <img 
