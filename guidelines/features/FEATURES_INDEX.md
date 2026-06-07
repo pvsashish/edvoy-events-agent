@@ -9,10 +9,14 @@
 | Groq Vision Analysis | — | complete | `api/analyze.js` |
 | Events Table Output (tracking sheet format) | — | complete | `public/app.jsx` |
 | Copy as TSV | — | complete | `public/app.jsx` (copyTsv fn) |
-| Specs History Log | — | complete | `public/app.jsx` (localStorage integration) |
-| Naming Guidelines Tab | — | complete | `public/app.jsx`, `public/index.html` |
-| Inline Naming Validator | — | complete | `public/app.jsx` (getValidationError fn) |
+| Export CSV | — | complete | `public/app.jsx` (downloadCsv fn) |
+| Copy JSON | — | complete | `public/app.jsx` (copyJson fn) |
+| Specs History Log | — | complete | `public/app.jsx`, `api/history.js` (Neon PostgreSQL + localStorage fallback) |
+| Specs History Pagination | — | complete | `public/app.jsx` (historyPage state, 5 items/page) |
+| Naming Guidelines Tab | — | complete | `public/app.jsx` |
+| Inline Naming Validator | — | complete | `public/app.jsx` (standalone validator card in Guidelines tab — real-time snake_case check + auto-correct) |
 | Workspace Reset Tool | — | complete | `public/app.jsx` (resetWorkspace fn) |
-| Specs History Pagination | — | complete | `public/app.jsx` (historyPage pagination integration) |
-| Duplicate Generation Prevention | — | complete | `public/app.jsx` (generatedAttachments state lock) |
+| Duplicate Generation Prevention | — | complete | `public/app.jsx` (generatedAttachments state lock + hint text) |
+| File Type Validation | — | complete | `public/app.jsx` (addFiles — MIME type + extension fallback, explicit error on unsupported type) |
+| Mobile Responsive Layout | — | complete | `public/index.html` (hamburger nav, guidelines grid single-col, reduced tab padding ≤768px) |
 
