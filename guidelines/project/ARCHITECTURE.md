@@ -24,7 +24,8 @@ events-agent/
 │   └── analyze.js          ← Vercel serverless — POST handler, calls Groq, returns events JSON
 ├── public/
 │   ├── index.html          ← Entry point (Vercel serves public/ as static root)
-│   └── app.jsx             ← Full React app loaded via Babel standalone (light mode, Edvoy brand)
+│   ├── app.jsx             ← Full React app loaded via Babel standalone (light mode, Edvoy brand)
+│   └── logo.png            ← Local brand logo (prevents CORS / hotlink blocks)
 ├── prompts/
 │   ├── ga4.js              ← GA4_PROMPT — system prompt with tracking sheet format spec
 │   └── amplitude.js        ← AMP_PROMPT — system prompt with tracking sheet format spec
