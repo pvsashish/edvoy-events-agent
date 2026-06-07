@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vercel dev"
+    "dev": "npx vercel@latest dev"
   },
   "dependencies": {
     "groq-sdk": "^0.9.1"
