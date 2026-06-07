@@ -51,9 +51,14 @@ export default async function handler(req, res) {
     try {
       events = JSON.parse(raw);
     } catch {
-      // Try extracting JSON array from response
-      const match = raw.match(/\[[\s\S]*\]/);
-      events = match ? JSON.parse(match[0]) : [];
+      try {
+        // Try extracting JSON array from response
+        const match = raw.match(/\[[\s\S]*\]/);
+        events = match ? JSON.parse(match[0]) : [];
+      } catch (parseErr) {
+        console.error('JSON Extraction failed:', parseErr, 'Raw content:', raw);
+        return res.status(400).json({ error: 'Failed to parse event specifications from the AI model response. Please try again.' });
+      }
     }
 
     return res.status(200).json({ events });

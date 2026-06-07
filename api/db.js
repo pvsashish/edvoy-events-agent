@@ -10,7 +10,11 @@ const pool = new Pool({
 });
 
 // Self-initializing table verification
-const initDb = async () => {
+let initPromise = null;
+
+export const initDb = () => {
+  if (initPromise) return initPromise;
+
   const queryText = `
     CREATE TABLE IF NOT EXISTS edvoy_specs_history (
       id VARCHAR(255) PRIMARY KEY,
@@ -23,19 +27,24 @@ const initDb = async () => {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `;
-  try {
-    const client = await pool.connect();
-    try {
-      await client.query(queryText);
-      console.log('Postgres initialized: edvoy_specs_history table verified.');
-    } finally {
-      client.release();
-    }
-  } catch (err) {
-    console.error('Postgres initialization failed:', err);
-  }
-};
 
-initDb();
+  initPromise = (async () => {
+    try {
+      const client = await pool.connect();
+      try {
+        await client.query(queryText);
+        console.log('Postgres initialized: edvoy_specs_history table verified.');
+      } finally {
+        client.release();
+      }
+    } catch (err) {
+      console.error('Postgres initialization failed:', err);
+      initPromise = null; // Reset to allow retry on next request
+      throw err;
+    }
+  })();
+
+  return initPromise;
+};
 
 export default pool;

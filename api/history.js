@@ -1,4 +1,4 @@
-import pool from './db.js';
+import pool, { initDb } from './db.js';
 
 export default async function handler(req, res) {
   if (!process.env.DATABASE_URL) {
@@ -9,6 +9,8 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Await database table verification to prevent first-request race conditions
+    await initDb();
     if (req.method === 'GET') {
       const dbRes = await pool.query(
         'SELECT id, name, timestamp, platform, events_count AS "eventsCount", events, feature_context AS "featureContext" FROM edvoy_specs_history ORDER BY created_at DESC'

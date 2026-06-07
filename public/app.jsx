@@ -257,7 +257,8 @@ function toSnakeCase(str) {
   if (!str) return '';
   return str
     .replace(/([a-z0-9])([A-Z])/g, '$1_$2') // camelCase to snake_case
-    .replace(/[\s-]+/g, '_')                // spaces to underscores
+    .replace(/[\s-]+/g, '_')                // spaces/dashes to underscores
+    .replace(/[^a-zA-Z0-9_]/g, '')          // strip special characters (punctuation, brackets)
     .toLowerCase()
     .replace(/_+/g, '_');                   // remove double underscores
 }
@@ -452,9 +453,12 @@ function App() {
   const [dragging, setDragging]            = useState(false);
   const [history, setHistory]              = useState([]);
   const [historyPage, setHistoryPage]      = useState(1);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   
   const fileRef                            = useRef();
   const resultsRef                         = useRef();
+  const copiedTimeoutRef                   = useRef(null);
+  const analyzeAbortRef                    = useRef(null);
 
   // Load Saved Specs on Init (DB with Local Storage fallback)
   useEffect(() => {
@@ -560,6 +564,20 @@ function App() {
 
   const analyze = async () => {
     if (!attachments.length) { setError('Add at least one screenshot or video.'); return; }
+    
+    // Check for failed video frame extraction
+    const failedVideos = attachments.filter(a => a.type === 'video' && (!a.frames || a.frames.length === 0));
+    if (failedVideos.length > 0) {
+      setError(`Failed to extract frames from: ${failedVideos.map(v => v.name).join(', ')}. Please try a different video or screenshot.`);
+      return;
+    }
+
+    if (analyzeAbortRef.current) {
+      analyzeAbortRef.current.abort();
+    }
+    const controller = new AbortController();
+    analyzeAbortRef.current = controller;
+
     setLoading(true); setError(''); setEvents([]);
 
     const images = attachments.flatMap(a =>
@@ -571,6 +589,7 @@ function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ images, platform, featureContext }),
+        signal: controller.signal,
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Analysis failed');
@@ -599,9 +618,12 @@ function App() {
       // Scroll to results
       setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
     } catch (err) {
+      if (err.name === 'AbortError') return;
       setError(err.message);
     } finally {
-      setLoading(false);
+      if (analyzeAbortRef.current === controller) {
+        setLoading(false);
+      }
     }
   };
 
@@ -623,17 +645,43 @@ function App() {
     setEvents(events.filter((_, i) => i !== index));
   };
 
+  const hasValidationErrors = () => {
+    return events.some(e => {
+      const eventErr = getValidationError(e.suggested_event_name, 'event', platform, e);
+      const paramErr = getValidationError(e.parameter, 'parameter', platform, e);
+      return !!(eventErr || paramErr);
+    });
+  };
+
+  const startCopyTimeout = (state) => {
+    if (copiedTimeoutRef.current) {
+      clearTimeout(copiedTimeoutRef.current);
+    }
+    setCopiedState(state);
+    copiedTimeoutRef.current = setTimeout(() => {
+      setCopiedState('');
+      copiedTimeoutRef.current = null;
+    }, 2000);
+  };
+
   // Copy/Export helpers
   const copyTsv = () => {
+    if (hasValidationErrors()) {
+      alert('Some tracking rows have naming convention errors. Please correct the highlighted errors before exporting.');
+      return;
+    }
     const cols = ['category', 'old_event_name', 'suggested_event_name', 'parameter', 'sample_value'];
     const header = cols.map(c => c.toUpperCase().replace(/_/g, ' ')).join('\t');
     const rows = events.map(e => cols.map(c => e[c] ?? '').join('\t'));
     navigator.clipboard.writeText([header, ...rows].join('\n'));
-    setCopiedState('tsv');
-    setTimeout(() => setCopiedState(''), 2000);
+    startCopyTimeout('tsv');
   };
 
   const downloadCsv = () => {
+    if (hasValidationErrors()) {
+      alert('Some tracking rows have naming convention errors. Please correct the highlighted errors before exporting.');
+      return;
+    }
     const cols = ['category', 'old_event_name', 'suggested_event_name', 'parameter', 'sample_value'];
     const header = cols.map(c => `"${c.toUpperCase().replace(/_/g, ' ')}"`).join(',');
     const rows = events.map(e => cols.map(c => `"${(e[c] ?? '').replace(/"/g, '""')}"`).join(','));
@@ -645,14 +693,16 @@ function App() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    setCopiedState('csv');
-    setTimeout(() => setCopiedState(''), 2000);
+    startCopyTimeout('csv');
   };
 
   const copyJson = () => {
+    if (hasValidationErrors()) {
+      alert('Some tracking rows have naming convention errors. Please correct the highlighted errors before exporting.');
+      return;
+    }
     navigator.clipboard.writeText(JSON.stringify(events, null, 2));
-    setCopiedState('json');
-    setTimeout(() => setCopiedState(''), 2000);
+    startCopyTimeout('json');
   };
 
   const loadFromHistory = (item) => {
@@ -702,11 +752,16 @@ function App() {
 
   const resetWorkspace = () => {
     if (confirm('Are you sure you want to clear your current workspace? This will clear all uploaded files, context, and generated events.')) {
+      if (analyzeAbortRef.current) {
+        analyzeAbortRef.current.abort();
+        analyzeAbortRef.current = null;
+      }
       setEvents([]);
       setAttachments([]);
       setGeneratedAttachments([]);
       setFeatureContext('');
       setError('');
+      setLoading(false);
     }
   };
 
@@ -718,19 +773,28 @@ function App() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: T.bg }}>
       
+      {/* Mobile Sidebar Backdrop Overlay */}
+      <div 
+        className={`sidebar-backdrop ${mobileSidebarOpen ? 'active' : ''}`} 
+        onClick={() => setMobileSidebarOpen(false)}
+      />
+
       {/* ── Sidebar Navigation ── */}
-      <aside style={{
-        width: 260,
-        background: T.surface,
-        borderRight: `1px solid ${T.border}`,
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'fixed',
-        top: 0,
-        bottom: 0,
-        left: 0,
-        zIndex: 100,
-      }}>
+      <aside 
+        className={`${mobileSidebarOpen ? 'sidebar-open' : ''}`}
+        style={{
+          width: 260,
+          background: T.surface,
+          borderRight: `1px solid ${T.border}`,
+          display: 'flex',
+          flexDirection: 'column',
+          position: 'fixed',
+          top: 0,
+          bottom: 0,
+          left: 0,
+          zIndex: 100,
+        }}
+      >
         {/* Brand Header */}
         <div style={{
           padding: '24px 20px',
@@ -762,7 +826,7 @@ function App() {
         {/* Sidebar Nav Links */}
         <nav style={{ padding: '20px 12px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <button
-            onClick={() => setActiveTab('generator')}
+            onClick={() => { setActiveTab('generator'); setMobileSidebarOpen(false); }}
             className={`sidebar-nav-btn ${activeTab === 'generator' ? 'active' : ''}`}
             style={{
               display: 'flex', alignItems: 'center', gap: 10,
@@ -778,7 +842,7 @@ function App() {
             Event Generator
           </button>
           <button
-            onClick={() => setActiveTab('history')}
+            onClick={() => { setActiveTab('history'); setMobileSidebarOpen(false); }}
             className={`sidebar-nav-btn ${activeTab === 'history' ? 'active' : ''}`}
             style={{
               display: 'flex', alignItems: 'center', gap: 10,
@@ -794,7 +858,7 @@ function App() {
             Specs History ({history.length})
           </button>
           <button
-            onClick={() => setActiveTab('guidelines')}
+            onClick={() => { setActiveTab('guidelines'); setMobileSidebarOpen(false); }}
             className={`sidebar-nav-btn ${activeTab === 'guidelines' ? 'active' : ''}`}
             style={{
               display: 'flex', alignItems: 'center', gap: 10,
@@ -867,8 +931,39 @@ function App() {
       {/* ── Main Panel Container ── */}
       <main style={{ marginLeft: 260, flex: 1, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
 
+        {/* Mobile Header Bar */}
+        <div className="mobile-header-bar">
+          <button
+            onClick={() => setMobileSidebarOpen(p => !p)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              padding: 4, display: 'flex', alignItems: 'center', color: T.t700
+            }}
+            aria-label="Toggle Navigation Menu"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="4" y1="12" x2="20" y2="12" />
+              <line x1="4" y1="6" x2="20" y2="6" />
+              <line x1="4" y1="18" x2="20" y2="18" />
+            </svg>
+          </button>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <img
+              src="https://edvoy.com/apple-touch-icon.png"
+              alt="Logo"
+              style={{ width: 22, height: 22, objectFit: 'contain' }}
+            />
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 800, color: T.t900 }}>
+              Edvoy Events
+            </span>
+          </div>
+          
+          <div style={{ width: 22 }} />
+        </div>
+
         {/* Header Bar */}
-        <header style={{
+        <header className="desktop-header-bar" style={{
           background: T.surface,
           borderBottom: `1px solid ${T.border}`,
           padding: '18px 32px',
@@ -1025,13 +1120,20 @@ function App() {
                 <div className="card-premium-hover" style={cardStyle}>
                   <div style={cardLabel}>Screenshots / Video Flow</div>
                   <div
-                    onDrop={onDrop}
-                    onDragOver={e => { e.preventDefault(); setDragging(true); }}
+                    onDrop={e => {
+                      if (processing || loading) { e.preventDefault(); return; }
+                      onDrop(e);
+                    }}
+                    onDragOver={e => {
+                      e.preventDefault();
+                      if (!processing && !loading) setDragging(true);
+                    }}
                     onDragLeave={() => setDragging(false)}
-                    onClick={() => fileRef.current.click()}
+                    onClick={() => { if (!processing && !loading) fileRef.current.click(); }}
                     className={`dropzone-premium ${dragging ? "dropzone-dragging" : ""}`}
                     style={{
-                      borderRadius: 10, cursor: 'pointer',
+                      borderRadius: 10,
+                      cursor: (processing || loading) ? 'not-allowed' : 'pointer',
                       display: 'flex', flexDirection: 'column',
                       alignItems: 'center', justifyContent: 'center',
                       padding: '24px 16px', gap: 8,
@@ -1493,13 +1595,13 @@ function App() {
                           style={{
                             background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12,
                             padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                            cursor: 'pointer', transition: 'all 0.15s',
+                            cursor: 'pointer', transition: 'all 0.15s', gap: 16,
                           }}
                           onMouseEnter={e => { e.currentTarget.style.borderColor = T.purple200; e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.02)'; }}
                           onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.boxShadow = 'none'; }}
                         >
-                          <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                               <img 
                                 src={item.platform === 'ga4' 
                                   ? "https://www.google.com/s2/favicons?domain=analytics.google.com&sz=32" 
@@ -1508,13 +1610,13 @@ function App() {
                                 style={{ width: 16, height: 16, borderRadius: 3, flexShrink: 0 }} 
                                 alt=""
                               />
-                              <span style={{ fontFamily: 'var(--font-display)', fontSize: 13.5, fontWeight: 750, color: T.t900 }}>
+                              <span style={{ fontFamily: 'var(--font-display)', fontSize: 13.5, fontWeight: 750, color: T.t900, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {item.name.replace(/^(GA4|AMPLITUDE|Amplitude)\s+/i, '')}
                               </span>
                             </div>
                             
                             {item.featureContext && (
-                              <p style={{ fontSize: 12, color: T.t500, marginTop: 6, fontStyle: 'italic', maxWidth: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <p style={{ fontSize: 12, color: T.t500, marginTop: 6, fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 "{item.featureContext}"
                               </p>
                             )}
@@ -1526,7 +1628,7 @@ function App() {
                             </div>
                           </div>
 
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                             <button
                               onClick={(e) => deleteHistoryItem(item.id, e)}
                               style={{
