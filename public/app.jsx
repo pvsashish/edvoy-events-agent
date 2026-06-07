@@ -1012,7 +1012,7 @@ function App() {
         </header>
 
         {/* Tab View Container */}
-        <div style={{ flex: 1, padding: 32, maxWidth: 1280, width: '100%', margin: '0 auto' }}>
+        <div className="tab-content-wrapper" style={{ flex: 1, padding: 32, maxWidth: 1280, width: '100%', margin: '0 auto' }}>
 
           {/* ─────────────────────────────────────────
              TAB 1: Generator Workspace
@@ -1799,7 +1799,7 @@ function App() {
               })()}
 
               {/* ── Guidelines Grid ── */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+              <div className="guidelines-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
               
               {/* GA4 Guidelines */}
               <div style={cardStyle}>
