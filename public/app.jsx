@@ -818,7 +818,7 @@ function App() {
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
           }}>
             <img
-              src="https://edvoy.com/apple-touch-icon.png"
+              src="/logo.png"
               alt="Edvoy Logo"
               style={{ width: 32, height: 32, objectFit: 'contain' }}
             />
@@ -960,7 +960,7 @@ function App() {
           
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <img
-              src="https://edvoy.com/apple-touch-icon.png"
+              src="/logo.png"
               alt="Logo"
               style={{ width: 22, height: 22, objectFit: 'contain' }}
             />
@@ -1062,8 +1062,6 @@ function App() {
                         zIndex: 2,
                         position: 'relative',
                         fontFamily: 'var(--font-display)',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
                       }}
                     >
                       <img 
@@ -1085,8 +1083,6 @@ function App() {
                         zIndex: 2,
                         position: 'relative',
                         fontFamily: 'var(--font-display)',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
                       }}
                     >
                       <img 

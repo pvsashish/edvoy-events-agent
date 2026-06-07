@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="icon" href="https://edvoy.com/apple-touch-icon.png" />
+  <link rel="icon" href="/logo.png" />
   <script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js" crossorigin></script>
   <script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.24.7/babel.min.js" crossorigin></script>
@@ -294,20 +294,20 @@
     }
 
     .sidebar-backdrop {
-      display: none;
       position: fixed;
       inset: 0;
       background: rgba(15, 23, 42, 0.4);
       backdrop-filter: blur(2.5px);
       z-index: 98;
       opacity: 0;
-      transition: opacity 0.25s ease-out;
+      visibility: hidden;
+      transition: opacity 0.25s ease-out, visibility 0.25s ease-out;
       pointer-events: none;
     }
 
     .sidebar-backdrop.active {
-      display: block;
       opacity: 1;
+      visibility: visible;
       pointer-events: auto;
     }
 
