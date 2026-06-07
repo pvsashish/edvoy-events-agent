@@ -280,6 +280,15 @@
       }
     }
 
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      width: 100%;
+      max-width: 540px;
+      text-align: left;
+    }
+
     /* Responsive Mobile styles */
     .mobile-header-bar {
       display: none;
@@ -344,6 +353,9 @@
         padding: 16px !important;
       }
       .guidelines-grid {
+        grid-template-columns: 1fr !important;
+      }
+      .steps-grid {
         grid-template-columns: 1fr !important;
       }
     }

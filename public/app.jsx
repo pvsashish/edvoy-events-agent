@@ -1261,10 +1261,7 @@ function App() {
                       Generate, review, and govern event tracking plans. Upload assets on the left to extract custom schemas, then review or edit results inline.
                     </p>
                     
-                    <div style={{
-                      display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16,
-                      width: '100%', maxWidth: 540, textAlign: 'left',
-                    }}>
+                    <div className="steps-grid">
                       <div style={stepsCardStyle}>
                         <div style={stepsNumStyle}>1</div>
                         <div style={stepsTitleStyle}>Upload Assets</div>
