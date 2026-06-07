@@ -1,0 +1,14 @@
+{
+  "name": "events-agent",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "dependencies": {
+    "groq-sdk": "^0.9.1"
+  },
+  "devDependencies": {
+    "vercel": "^34.0.0"
+  }
+}
