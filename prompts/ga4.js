@@ -5,10 +5,9 @@ Analyze the provided screenshot(s) and output events that match Edvoy's tracking
 TRACKING SHEET FORMAT — return a JSON array. Each row in the tracking sheet = one object:
 {
   "category":             string  // Feature area or placement. Prefer existing categories, or suggest a new one if it's a new feature.
-  "old_event_name":       string  // Legacy/existing event name if inferrable from context, else ""
   "suggested_event_name": string  // New GA4 event name — lowercase snake_case (e.g., article_entry_pop_up_submit_clicked, subject_selected)
   "parameter":            string  // GA4 parameter name — lowercase snake_case (e.g., from, options_name, country_name). Prefer existing parameters to avoid redundancy.
-  "sample_value":         string  // Realistic example value for this parameter (e.g., landing page url, dynamic value)
+  "sample_value":         string  // Value for this parameter. If the parameter is "is_clicked", set this to "true" or "false". If the parameter is a dynamic identifier (e.g., ending with "_id" like "offer_id", "application_id", etc.), set this to "dynamic value".
 }
 
 One object per parameter. If an event has 3 parameters, produce 3 rows (same event, different parameter).

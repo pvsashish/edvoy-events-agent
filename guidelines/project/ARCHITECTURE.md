@@ -3,7 +3,7 @@
 **Last updated:** 2026-06-07
 
 ## What It Does
-PM tool for Edvoy's analytics team. Upload screenshots or videos of Edvoy web portal or mobile app, select GA4 or Amplitude, and receive correctly formatted analytics events + parameters matching the tracking sheet format (Category, Old Event Name, Suggested Event Name, Parameter, Sample Value).
+PM tool for Edvoy's analytics team. Upload screenshots or videos of Edvoy web portal or mobile app, select GA4 or Amplitude, and receive correctly formatted analytics events + parameters matching the tracking sheet format (Category, Suggested Event Name, Parameter, Sample Value).
 
 ## Users
 Edvoy product managers and analytics team.

@@ -410,10 +410,10 @@ function AttachmentThumb({ item, onRemove }) {
 
 function SkeletonRows() {
   const widths = [
-    [80, 140, 190, 110, 100],
-    [95, 120, 170, 130, 80],
-    [70, 150, 210, 140, 120],
-    [85, 110, 160, 120, 95],
+    [80, 190, 110, 100],
+    [95, 170, 130, 80],
+    [70, 210, 140, 120],
+    [85, 160, 120, 95],
   ];
   return (
     <tbody>
@@ -641,13 +641,40 @@ function App() {
   const handleCellChange = (index, key, value) => {
     const next = [...events];
     next[index][key] = value;
+    
+    // Auto-formatting logic for parameters and sample values
+    const param = (next[index].parameter || '').trim().toLowerCase();
+    const val = (next[index].sample_value || '').trim();
+    
+    if (key === 'parameter') {
+      if (param === 'is_clicked') {
+        if (val.toLowerCase() !== 'true' && val.toLowerCase() !== 'false') {
+          next[index].sample_value = 'true';
+        } else {
+          next[index].sample_value = val.toLowerCase();
+        }
+      } else if (param.endsWith('_id')) {
+        next[index].sample_value = 'dynamic value';
+      }
+    } else if (key === 'sample_value') {
+      if (param === 'is_clicked') {
+        if (value.toLowerCase() !== 'true' && value.toLowerCase() !== 'false') {
+          next[index].sample_value = 'true';
+        } else {
+          next[index].sample_value = value.toLowerCase();
+        }
+      } else if (param.endsWith('_id')) {
+        next[index].sample_value = 'dynamic value';
+      }
+    }
+    
     setEvents(next);
   };
 
   const addRow = () => {
     setEvents([
       ...events,
-      { _rowId: Math.random().toString(36).slice(2), category: platform === 'ga4' ? 'Search' : 'Onboarding Screen', old_event_name: '', suggested_event_name: '', parameter: '', sample_value: '' }
+      { _rowId: Math.random().toString(36).slice(2), category: platform === 'ga4' ? 'Search' : 'Onboarding Screen', suggested_event_name: '', parameter: '', sample_value: '' }
     ]);
   };
 
@@ -680,7 +707,7 @@ function App() {
       alert('Some tracking rows have naming convention errors. Please correct the highlighted errors before exporting.');
       return;
     }
-    const cols = ['category', 'old_event_name', 'suggested_event_name', 'parameter', 'sample_value'];
+    const cols = ['category', 'suggested_event_name', 'parameter', 'sample_value'];
     const header = cols.map(c => c.toUpperCase().replace(/_/g, ' ')).join('\t');
     const rows = events.map(e => cols.map(c => e[c] ?? '').join('\t'));
     navigator.clipboard.writeText([header, ...rows].join('\n'));
@@ -692,7 +719,7 @@ function App() {
       alert('Some tracking rows have naming convention errors. Please correct the highlighted errors before exporting.');
       return;
     }
-    const cols = ['category', 'old_event_name', 'suggested_event_name', 'parameter', 'sample_value'];
+    const cols = ['category', 'suggested_event_name', 'parameter', 'sample_value'];
     const header = cols.map(c => `"${c.toUpperCase().replace(/_/g, ' ')}"`).join(',');
     const rows = events.map(e => cols.map(c => `"${(e[c] ?? '').replace(/"/g, '""')}"`).join(','));
     const csvContent = "data:text/csv;charset=utf-8," + [header, ...rows].join('\n');
@@ -1354,7 +1381,6 @@ function App() {
                         <thead>
                           <tr>
                             <th style={thStyle({ w: 140 })}>Category</th>
-                            <th style={thStyle({ w: 160 })}>Old Event Name</th>
                             <th style={thStyle({ w: 220 })}>Suggested Event Name</th>
                             <th style={thStyle({ w: 180 })}>Parameter / Property</th>
                             <th style={thStyle({ w: 160 })}>Sample Value</th>
@@ -1395,16 +1421,6 @@ function App() {
                                   </select>
                                 </td>
 
-                                {/* Old Event Name */}
-                                <td style={tdStyle}>
-                                  <input
-                                    type="text"
-                                    value={e.old_event_name || ''}
-                                    onChange={el => handleCellChange(i, 'old_event_name', el.target.value)}
-                                    style={cellInputStyle(true)}
-                                    placeholder="N/A"
-                                  />
-                                </td>
 
                                 {/* Suggested Event Name */}
                                 <td style={{ ...tdStyle, position: 'relative' }}>

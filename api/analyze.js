@@ -61,6 +61,36 @@ export default async function handler(req, res) {
       }
     }
 
+    // Normalize and clean events
+    if (Array.isArray(events)) {
+      events = events.map(e => {
+        // Remove old_event_name if returned
+        if (e && typeof e === 'object') {
+          delete e.old_event_name;
+          
+          const param = (e.parameter || '').trim().toLowerCase();
+          let val = (e.sample_value || '').trim();
+          
+          if (param === 'is_clicked') {
+            if (val.toLowerCase() !== 'true' && val.toLowerCase() !== 'false') {
+              val = 'true';
+            } else {
+              val = val.toLowerCase();
+            }
+          } else if (param.endsWith('_id')) {
+            val = 'dynamic value';
+          }
+          
+          return {
+            ...e,
+            parameter: e.parameter ? param : '',
+            sample_value: val
+          };
+        }
+        return e;
+      });
+    }
+
     return res.status(200).json({ events });
   } catch (err) {
     console.error('Groq error:', err);
