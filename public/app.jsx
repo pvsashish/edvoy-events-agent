@@ -253,6 +253,41 @@ function IconReset({ size = 14, color = 'currentColor' }) {
   );
 }
 
+function IconGA4({ size = 16, className = "", style = {} }) {
+  return (
+    <svg 
+      width={size} 
+      height={size} 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      className={className}
+      style={style}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M19.5 21a1.5 1.5 0 001.5-1.5v-15a1.5 1.5 0 00-1.5-1.5h-3a1.5 1.5 0 00-1.5 1.5v15a1.5 1.5 0 001.5 1.5h3z" fill="#F9AB00"/>
+      <path d="M12.5 21a1.5 1.5 0 001.5-1.5v-10a1.5 1.5 0 00-1.5-1.5h-3a1.5 1.5 0 00-1.5 1.5v10a1.5 1.5 0 001.5 1.5h3z" fill="#E37400"/>
+      <path d="M5.5 21a1.5 1.5 0 001.5-1.5v-5a1.5 1.5 0 00-1.5-1.5h-3A1.5 1.5 0 001 14.5v5A1.5 1.5 0 002.5 21h3z" fill="#F4B400"/>
+    </svg>
+  );
+}
+
+function IconAmplitude({ size = 16, className = "", style = {} }) {
+  return (
+    <svg 
+      width={size} 
+      height={size} 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      className={className}
+      style={style}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M12 2L2.5 18.5h4.25L12 9.5l5.25 9H21.5L12 2z" fill="#814EE7"/>
+      <path d="M12 14.5L9.5 18.5h5L12 14.5z" fill="#5F27E5"/>
+    </svg>
+  );
+}
+
 function toSnakeCase(str) {
   if (!str) return '';
   return str
@@ -1091,10 +1126,9 @@ function App() {
                         fontFamily: 'var(--font-display)',
                       }}
                     >
-                      <img 
-                        src="https://www.google.com/s2/favicons?domain=analytics.google.com&sz=32" 
-                        style={{ width: 13, height: 13, borderRadius: 2, filter: platform === 'ga4' ? 'none' : 'grayscale(100%) opacity(0.6)' }} 
-                        alt=""
+                      <IconGA4 
+                        size={13} 
+                        style={{ borderRadius: 2, filter: platform === 'ga4' ? 'none' : 'grayscale(100%) opacity(0.6)' }} 
                       />
                       <span className="desktop-only">Google Analytics 4</span>
                       <span className="mobile-only">GA4</span>
@@ -1113,10 +1147,9 @@ function App() {
                         fontFamily: 'var(--font-display)',
                       }}
                     >
-                      <img 
-                        src="https://www.google.com/s2/favicons?domain=amplitude.com&sz=32" 
-                        style={{ width: 13, height: 13, borderRadius: 2, filter: platform === 'amplitude' ? 'none' : 'grayscale(100%) opacity(0.6)' }} 
-                        alt=""
+                      <IconAmplitude 
+                        size={13} 
+                        style={{ borderRadius: 2, filter: platform === 'amplitude' ? 'none' : 'grayscale(100%) opacity(0.6)' }} 
                       />
                       Amplitude
                     </button>
@@ -1331,14 +1364,11 @@ function App() {
                             {events.length} rows
                           </span>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <img 
-                              src={platform === 'ga4' 
-                                ? "https://www.google.com/s2/favicons?domain=analytics.google.com&sz=32" 
-                                : "https://www.google.com/s2/favicons?domain=amplitude.com&sz=32"
-                              } 
-                              style={{ width: 13, height: 13, borderRadius: 2 }} 
-                              alt=""
-                            />
+                            {platform === 'ga4' ? (
+                              <IconGA4 size={13} style={{ borderRadius: 2 }} />
+                            ) : (
+                              <IconAmplitude size={13} style={{ borderRadius: 2 }} />
+                            )}
                             <span style={{ fontSize: 12.5, color: T.t500, fontWeight: 600 }}>
                               {platform === 'ga4' ? 'GA4 event structure' : 'Amplitude event structure'}
                             </span>
@@ -1632,14 +1662,11 @@ function App() {
                         >
                           <div style={{ minWidth: 0, flex: 1 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                              <img 
-                                src={item.platform === 'ga4' 
-                                  ? "https://www.google.com/s2/favicons?domain=analytics.google.com&sz=32" 
-                                  : "https://www.google.com/s2/favicons?domain=amplitude.com&sz=32"
-                                } 
-                                style={{ width: 16, height: 16, borderRadius: 3, flexShrink: 0 }} 
-                                alt=""
-                              />
+                              {item.platform === 'ga4' ? (
+                                <IconGA4 size={16} style={{ borderRadius: 3, flexShrink: 0 }} />
+                              ) : (
+                                <IconAmplitude size={16} style={{ borderRadius: 3, flexShrink: 0 }} />
+                              )}
                               <span style={{ fontFamily: 'var(--font-display)', fontSize: 13.5, fontWeight: 750, color: T.t900, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {item.name.replace(/^(GA4|AMPLITUDE|Amplitude)\s+/i, '')}
                               </span>
@@ -1770,7 +1797,7 @@ function App() {
                         fontSize: 13, outline: 'none', transition: 'all 0.15s',
                         background: trimmed ? (isValid ? T.green50 : T.red50) : T.bg,
                         boxShadow: trimmed ? (isValid ? '0 0 0 3px rgba(16,185,129,0.1)' : '0 0 0 3px rgba(220,38,38,0.08)') : 'none',
-                        fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
+                        fontFamily: "var(--font-mono)",
                         marginBottom: trimmed ? 10 : 0,
                       }}
                     />
@@ -1795,7 +1822,7 @@ function App() {
                               style={{
                                 background: T.purple50, border: `1px solid ${T.purple200}`, borderRadius: 5,
                                 padding: '3px 10px', fontSize: 12, fontWeight: 700, color: T.purple700,
-                                cursor: 'pointer', fontFamily: "'SF Mono', 'Fira Code', monospace",
+                                cursor: 'pointer', fontFamily: "var(--font-mono)",
                                 transition: 'all 0.15s',
                               }}
                               onMouseEnter={el => el.currentTarget.style.background = T.purple100}
@@ -1921,7 +1948,7 @@ const cardLabel = {
 };
 
 const codeTextStyle = {
-  fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
+  fontFamily: "var(--font-mono)",
   fontSize: 11,
   background: T.bg,
   padding: '2px 5px',
@@ -2007,7 +2034,7 @@ const cellInputStyle = (isMonospace = false, customColor = T.t900, customBg = 't
   padding: '4px 8px',
   borderRadius: 6,
   fontSize: 12,
-  fontFamily: isMonospace ? "'SF Mono', 'Fira Code', 'Cascadia Code', monospace" : 'inherit',
+  fontFamily: isMonospace ? "var(--font-mono)" : 'inherit',
   fontWeight: isMonospace ? 400 : 500,
   outline: 'none',
   transition: 'all 0.15s',
