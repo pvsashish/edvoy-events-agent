@@ -282,8 +282,21 @@ function IconAmplitude({ size = 16, className = "", style = {} }) {
       style={style}
       xmlns="http://www.w3.org/2000/svg"
     >
-      <path d="M12 2L2.5 18.5h4.25L12 9.5l5.25 9H21.5L12 2z" fill="#814EE7"/>
-      <path d="M12 14.5L9.5 18.5h5L12 14.5z" fill="#5F27E5"/>
+      <circle cx="12" cy="12" r="10" fill="#0052FF" />
+      <path 
+        d="M 8 16.5 L 12 6.5 L 16 16.5" 
+        stroke="#FFFFFF" 
+        strokeWidth="1.8" 
+        strokeLinecap="round" 
+        strokeLinejoin="round" 
+      />
+      <path 
+        d="M 5 12 C 6.5 12, 7.5 8.5, 9.5 8.5 C 12.5 8.5, 13.5 15.5, 15.5 15.5 C 17.5 15.5, 18.5 12, 19 12" 
+        stroke="#FFFFFF" 
+        strokeWidth="1.8" 
+        strokeLinecap="round" 
+        strokeLinejoin="round" 
+      />
     </svg>
   );
 }
