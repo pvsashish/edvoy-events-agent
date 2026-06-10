@@ -13,8 +13,8 @@
 | Copy JSON | — | complete | `public/app.jsx` (copyJson fn) |
 | Specs History Log | — | complete | `public/app.jsx`, `api/history.js` (Neon PostgreSQL + localStorage fallback) |
 | Specs History Pagination | — | complete | `public/app.jsx` (historyPage state, 5 items/page) |
-| Naming Guidelines Tab | — | complete | `public/app.jsx` |
-| Inline Naming Validator | — | complete | `public/app.jsx` (standalone validator card in Guidelines tab — real-time snake_case check + auto-correct) |
+| Naming Converter Tab | — | complete | `public/app.jsx` |
+| Batch Naming Converter | — | complete | `public/app.jsx` (standalone batch converter card in Naming Converter tab — real-time snake_case conversion of single/multiple names) |
 | Workspace Reset Tool | — | complete | `public/app.jsx` (resetWorkspace fn) |
 | Duplicate Generation Prevention | — | complete | `public/app.jsx` (generatedAttachments state lock + hint text) |
 | File Type Validation | — | complete | `public/app.jsx` (addFiles — MIME type + extension fallback, explicit error on unsupported type) |

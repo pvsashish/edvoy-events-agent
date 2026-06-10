@@ -282,15 +282,17 @@ function IconAmplitude({ size = 16, className = "", style = {} }) {
       style={style}
       xmlns="http://www.w3.org/2000/svg"
     >
-      <circle cx="53.346" cy="53.346" r="53.346" fill="#1E61F0" />
-      <path 
-        d="M46.298 16.304c-6.577.021-12.533 10.605-17.654 31.43c-3.258-.04-6.274-.095-9.11-.137l-.938-.014h-.471c-.386-.021-.771 0-1.157.043a3.7 3.7 0 0 0-3.02 3.642a3.73 3.73 0 0 0 2.958 3.63l.19.034l.043.043h9.834a240 240 0 0 0-2.123 10.76l-.255 1.494l-.3 1.736v.085c0 .836.429 1.607 1.136 2.057a2.457 2.457 0 0 0 3.29-.612l.095-.138l.064.065l4.82-15.447h23.224c1.778 6.727 3.621 13.647 6.063 20.16c1.284 3.43 4.243 11.35 9.182 11.666l.266.01h.065c6.142 0 9.372-7.737 11.461-15.147l.184-.663c.514-1.873.957-3.71 1.36-5.378c.412-1.67.752-3.123 1.086-4.245l.092-.297l.15-.472l.035-.125a1.21 1.21 0 0 0-.785-1.396c-.58-.2-1.235.067-1.494.626l-.049.124l-.171.471c-.581 1.631-1.13 3.164-1.63 4.57l-.213.594l-.043.128c-3.372 9.507-4.92 13.932-7.887 14.072l-.147.004h-.192c-3.921 0-7.585-15.897-8.977-21.874c-.197-.857-.378-1.67-.557-2.4l-.107-.428h25.28c.375 0 .75-.075 1.1-.223l.207-.099l.028-.021l.037-.022l.042-.021l.129-.086l.064-.043q.065-.04.129-.092l.064-.057l.166-.143c.426-.398.729-.933.862-1.486c.31-1.465-.613-2.91-2.04-3.282l-.166-.038h-.129c-.1-.015-.19-.03-.284-.037l-.144-.006l-.386-.043c-8.247-.593-16.713-.858-24.757-1.03l-2.002-.041l-.021-.065q-.502-1.892-1.024-3.777l-.263-.94l-.132-.47l-.267-.935l-.257-.89c-3.841-13.175-8.538-24.824-14.554-24.824" 
-        fill="#FFFFFF" 
-      />
-      <path 
-        d="M46.02 23.396c.365 0 .707.215 1.007.6c.729 1.157 2.014 3.75 3.92 9.491c1.308 3.942 2.722 8.848 4.221 14.547c-4.749-.071-9.527-.128-14.212-.182l-2.798-.032l-2.828-.021c3.192-12.47 7.07-21.917 9.92-24.146c.235-.15.492-.257.77-.257" 
-        fill="#FFFFFF" 
-      />
+      <rect width="107" height="107" rx="22" ry="22" fill="#1E61F0" />
+      <g transform="translate(15.523, 19.465) scale(0.7096)">
+        <path 
+          d="M46.298 16.304c-6.577.021-12.533 10.605-17.654 31.43c-3.258-.04-6.274-.095-9.11-.137l-.938-.014h-.471c-.386-.021-.771 0-1.157.043a3.7 3.7 0 0 0-3.02 3.642a3.73 3.73 0 0 0 2.958 3.63l.19.034l.043.043h9.834a240 240 0 0 0-2.123 10.76l-.255 1.494l-.3 1.736v.085c0 .836.429 1.607 1.136 2.057a2.457 2.457 0 0 0 3.29-.612l.095-.138l.064.065l4.82-15.447h23.224c1.778 6.727 3.621 13.647 6.063 20.16c1.284 3.43 4.243 11.35 9.182 11.666l.266.01h.065c6.142 0 9.372-7.737 11.461-15.147l.184-.663c.514-1.873.957-3.71 1.36-5.378c.412-1.67.752-3.123 1.086-4.245l.092-.297l.15-.472l.035-.125a1.21 1.21 0 0 0-.785-1.396c-.58-.2-1.235.067-1.494.626l-.049.124l-.171.471c-.581 1.631-1.13 3.164-1.63 4.57l-.213.594l-.043.128c-3.372 9.507-4.92 13.932-7.887 14.072l-.147.004h-.192c-3.921 0-7.585-15.897-8.977-21.874c-.197-.857-.378-1.67-.557-2.4l-.107-.428h25.28c.375 0 .75-.075 1.1-.223l.207-.099l.028-.021l.037-.022l.042-.021l.129-.086l.064-.043q.065-.04.129-.092l.064-.057l.166-.143c.426-.398.729-.933.862-1.486c.31-1.465-.613-2.91-2.04-3.282l-.166-.038h-.129c-.1-.015-.19-.03-.284-.037l-.144-.006l-.386-.043c-8.247-.593-16.713-.858-24.757-1.03l-2.002-.041l-.021-.065q-.502-1.892-1.024-3.777l-.263-.94l-.132-.47l-.267-.935l-.257-.89c-3.841-13.175-8.538-24.824-14.554-24.824" 
+          fill="#FFFFFF" 
+        />
+        <path 
+          d="M46.02 23.396c.365 0 .707.215 1.007.6c.729 1.157 2.014 3.75 3.92 9.491c1.308 3.942 2.722 8.848 4.221 14.547c-4.749-.071-9.527-.128-14.212-.182l-2.798-.032l-2.828-.021c3.192-12.47 7.07-21.917 9.92-24.146c.235-.15.492-.257.77-.257" 
+          fill="#FFFFFF" 
+        />
+      </g>
     </svg>
   );
 }
@@ -496,7 +498,8 @@ function App() {
   const [history, setHistory]              = useState([]);
   const [historyPage, setHistoryPage]      = useState(1);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [validatorInput, setValidatorInput]       = useState('');
+  const [converterInput, setConverterInput]       = useState('');
+  const [converterCopied, setConverterCopied]     = useState(false);
   
   const fileRef                            = useRef();
   const resultsRef                         = useRef();
@@ -950,7 +953,7 @@ function App() {
             }}
           >
             <IconListChecks color={activeTab === 'guidelines' ? T.purple700 : T.t500} />
-            Naming Guidelines
+            Naming Converter
           </button>
         </nav>
 
@@ -1057,7 +1060,7 @@ function App() {
             <h2 style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.02em', fontSize: 18, fontWeight: 800, color: T.t900 }}>
               {activeTab === 'generator' && 'Event Tracking Generator'}
               {activeTab === 'history' && 'Event Specification History'}
-              {activeTab === 'guidelines' && 'Tracking Naming Guidelines'}
+              {activeTab === 'guidelines' && 'Batch Naming Converter'}
             </h2>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -1307,6 +1310,7 @@ function App() {
               {/* Specification Work Board (Right Column) */}
               <div style={{ minWidth: 0 }}>
                 
+
                 {events.length === 0 && !loading ? (
                   /* Workspace Empty State */
                   <div style={{
@@ -1779,151 +1783,94 @@ function App() {
           {activeTab === 'guidelines' && (
             <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-              {/* ── Inline Naming Validator ── */}
+              {/* ── Batch Naming Converter ── */}
               {(() => {
-                const trimmed = validatorInput.trim();
-                const validErr = trimmed ? getValidationError(trimmed, 'event', platform, null) : null;
-                const snaked = trimmed ? toSnakeCase(trimmed) : '';
-                const isValid = !!(trimmed && !validErr);
-                const showSuggestion = !!(trimmed && snaked && snaked !== trimmed);
+                const lines = converterInput.split('\n');
+                const convertedLines = lines.map(line => line.trim() ? toSnakeCase(line) : '');
+                const convertedText = convertedLines.join('\n');
                 return (
-                  <div style={cardStyle}>
-                    <div style={cardLabel}>Inline Naming Validator</div>
+                  <div className="card-premium-hover" style={cardStyle}>
+                    <div style={cardLabel}>Batch Naming Converter</div>
                     <p style={{ fontSize: 12.5, color: T.t500, marginBottom: 14, lineHeight: 1.5 }}>
-                      Test any event or parameter name against Edvoy naming conventions in real-time.
+                      Paste raw event or parameter names (e.g. <code>Continue with email</code>). They are converted to clean <code>snake_case</code> formats in real-time. Supports single or multiple names (one per line).
                     </p>
-                    <input
-                      type="text"
-                      value={validatorInput}
-                      onChange={e => setValidatorInput(e.target.value)}
-                      placeholder="Type an event name, e.g. counsellor_booking_clicked"
-                      style={{
-                        width: '100%',
-                        border: `1px solid ${trimmed ? (isValid ? T.green200 : T.red200) : T.border}`,
-                        borderRadius: 8, color: T.t900, padding: '10px 14px',
-                        fontSize: 13, outline: 'none', transition: 'all 0.15s',
-                        background: trimmed ? (isValid ? T.green50 : T.red50) : T.bg,
-                        boxShadow: trimmed ? (isValid ? '0 0 0 3px rgba(16,185,129,0.1)' : '0 0 0 3px rgba(220,38,38,0.08)') : 'none',
-                        fontFamily: "var(--font-mono)",
-                        marginBottom: trimmed ? 10 : 0,
-                      }}
-                    />
-                    {trimmed && (
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+                      {/* Raw Inputs */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {isValid ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: T.green700, fontWeight: 600 }}>
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                            Valid — ready to use
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: T.red700, fontWeight: 600 }}>
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                            {validErr}
-                          </div>
-                        )}
-                        {showSuggestion && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: T.t500 }}>
-                            <span>Suggested fix:</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: T.t500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Raw Inputs</span>
+                        <textarea
+                          value={converterInput}
+                          onChange={e => { setConverterInput(e.target.value); setConverterCopied(false); }}
+                          placeholder="Continue with email"
+                          rows={3}
+                          style={{
+                            width: '100%',
+                            border: `1px solid ${T.border}`,
+                            borderRadius: 8, color: T.t900, padding: '10px 12px',
+                            fontSize: 12.5, outline: 'none', resize: 'vertical',
+                            background: T.bg,
+                            fontFamily: "var(--font-mono)",
+                            lineHeight: 1.5,
+                            transition: 'all 0.15s',
+                          }}
+                          onFocus={e => { e.target.style.borderColor = T.purple; e.target.style.background = '#fff'; e.target.style.boxShadow = `0 0 0 3px ${T.purple100}`; }}
+                          onBlur={e => { e.target.style.borderColor = T.border; e.target.style.background = T.bg; e.target.style.boxShadow = 'none'; }}
+                        />
+                      </div>
+                      
+                      {/* Converted Outputs */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: T.t500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>snake_case outputs</span>
+                          {convertedText && (
                             <button
-                              onClick={() => setValidatorInput(snaked)}
+                              onClick={() => {
+                                  navigator.clipboard.writeText(convertedText);
+                                  setConverterCopied(true);
+                                  setTimeout(() => setConverterCopied(false), 2000);
+                              }}
                               style={{
-                                background: T.purple50, border: `1px solid ${T.purple200}`, borderRadius: 5,
-                                padding: '3px 10px', fontSize: 12, fontWeight: 700, color: T.purple700,
-                                cursor: 'pointer', fontFamily: "var(--font-mono)",
+                                background: converterCopied ? T.green50 : T.purple50,
+                                border: `1px solid ${converterCopied ? T.green200 : T.purple200}`,
+                                borderRadius: 5,
+                                padding: '2px 8px',
+                                fontSize: 11,
+                                fontWeight: 700,
+                                color: converterCopied ? T.green700 : T.purple700,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 4,
                                 transition: 'all 0.15s',
                               }}
-                              onMouseEnter={el => el.currentTarget.style.background = T.purple100}
-                              onMouseLeave={el => el.currentTarget.style.background = T.purple50}
                             >
-                              {snaked}
+                              {converterCopied ? <IconCheck size={11} /> : <IconCopy size={11} />}
+                              {converterCopied ? 'Copied!' : 'Copy List'}
                             </button>
-                            <span style={{ fontSize: 11, color: T.t400 }}>(click to apply)</span>
-                          </div>
-                        )}
+                          )}
+                        </div>
+                        <textarea
+                          readOnly
+                          value={convertedText}
+                          placeholder="continue_with_email"
+                          rows={3}
+                          style={{
+                            width: '100%',
+                            border: `1px solid ${T.border}`,
+                            borderRadius: 8, color: T.purple700, padding: '10px 12px',
+                            fontSize: 12.5, outline: 'none', resize: 'vertical',
+                            background: T.purple50,
+                            fontFamily: "var(--font-mono)",
+                            lineHeight: 1.5,
+                          }}
+                        />
                       </div>
-                    )}
+                    </div>
                   </div>
                 );
               })()}
 
-              {/* ── Guidelines Grid ── */}
-              <div className="guidelines-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-              
-              {/* GA4 Guidelines */}
-              <div style={cardStyle}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderBottom: `1px solid ${T.border}`, paddingBottom: 12, marginBottom: 16 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#3B82F6' }} />
-                  <h3 style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em', fontSize: 15, fontWeight: 800, color: T.t900 }}>Google Analytics 4 Convention</h3>
-                </div>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <div>
-                    <h4 style={subSectionTitle}>Naming Structure</h4>
-                    <p style={guidelineText}>
-                      Use <code style={codeTextStyle}>snake_case</code> (all lowercase with underscores) for all event names and parameter/property names. Max character length is <strong>100</strong>.
-                    </p>
-                  </div>
-
-                  <div>
-                    <h4 style={subSectionTitle}>Interaction Patterns</h4>
-                    <ul style={guidelineList}>
-                      <li><strong>Screen Views</strong>: Specific screen names in snake_case (e.g. <code style={codeTextStyle}>thank_you_screen_viewed</code>, <code style={codeTextStyle}>chatbot_preferences_viewed</code>). Do NOT use generic <code style={codeTextStyle}>page_view</code>.</li>
-                      <li><strong>Button Clicks</strong>: Action events in snake_case (e.g. <code style={codeTextStyle}>article_entry_pop_up_submit_clicked</code>, <code style={codeTextStyle}>submit_button_clicked</code>, <code style={codeTextStyle}>resend_otp</code>).</li>
-                      <li><strong>Item Selections</strong>: Selection events (e.g. <code style={codeTextStyle}>subject_selected</code>, <code style={codeTextStyle}>country_selected</code>).</li>
-                    </ul>
-                  </div>
-
-                  <div>
-                    <h4 style={subSectionTitle}>Required Global Parameters</h4>
-                    <p style={guidelineText}>
-                      Every single generated GA4 event must include:
-                    </p>
-                    <ul style={guidelineList}>
-                      <li><code style={codeTextStyle}>user_type</code> ("student" or "counsellor")</li>
-                      <li><code style={codeTextStyle}>platform</code> ("web", "ios", "android")</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              {/* Amplitude Guidelines */}
-              <div style={cardStyle}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderBottom: `1px solid ${T.border}`, paddingBottom: 12, marginBottom: 16 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: T.purple }} />
-                  <h3 style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em', fontSize: 15, fontWeight: 800, color: T.t900 }}>Amplitude Taxonomy</h3>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <div>
-                    <h4 style={subSectionTitle}>Naming Structure</h4>
-                    <p style={guidelineText}>
-                      Use <code style={codeTextStyle}>snake_case</code> (all lowercase with underscores) for all event names and property/parameter names.
-                    </p>
-                  </div>
-
-                  <div>
-                    <h4 style={subSectionTitle}>Interaction Patterns</h4>
-                    <ul style={guidelineList}>
-                      <li><strong>Screen Views</strong>: Specific screen names in snake_case (e.g. <code style={codeTextStyle}>welcome_screen</code>, <code style={codeTextStyle}>onboarding_screen</code>, <code style={codeTextStyle}>profile_step_viewed</code>, <code style={codeTextStyle}>preferences_viewed</code>).</li>
-                      <li><strong>Button Clicks</strong>: Action events in snake_case (e.g. <code style={codeTextStyle}>get_started_clicked</code>, <code style={codeTextStyle}>continue_with_email</code>, <code style={codeTextStyle}>continue_clicked</code>).</li>
-                      <li><strong>State Changes</strong>: Lifecycle events (e.g. <code style={codeTextStyle}>account_created</code>, <code style={codeTextStyle}>preferences_saved</code>).</li>
-                    </ul>
-                  </div>
-
-                  <div>
-                    <h4 style={subSectionTitle}>Required Global Properties</h4>
-                    <p style={guidelineText}>
-                      Every single generated Amplitude event must include:
-                    </p>
-                    <ul style={guidelineList}>
-                      <li><code style={codeTextStyle}>user_type</code> ("student" or "counsellor")</li>
-                      <li><code style={codeTextStyle}>platform</code> ("web", "ios", "android")</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              </div>
             </div>
           )}
 
