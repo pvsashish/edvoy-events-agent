@@ -282,7 +282,7 @@ function IconAmplitude({ size = 16, className = "", style = {} }) {
       style={style}
       xmlns="http://www.w3.org/2000/svg"
     >
-      <circle cx="12" cy="12" r="10" fill="#0052FF" />
+      <circle cx="12" cy="12" r="10" fill="#0052F2" />
       <path 
         d="M 8 16.5 L 12 6.5 L 16 16.5" 
         stroke="#FFFFFF" 
