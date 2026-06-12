@@ -983,7 +983,7 @@ function App() {
           
           <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: T.t900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: T.t900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 Ashish P.
               </span>
               <span 
@@ -1124,14 +1124,14 @@ function App() {
                         padding: '8px', border: 'none', borderRadius: 6,
                         background: 'transparent',
                         color: platform === 'ga4' ? T.purple700 : T.t500,
-                        fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                        fontSize: 12, fontWeight: 600, cursor: 'pointer',
                         transition: 'all 0.25s',
                         zIndex: 2,
                         position: 'relative',
                         fontFamily: 'var(--font-display)',
                       }}
                     >
-                      <IconGA4 
+                      <IconGA4
                         size={13} 
                         style={{ borderRadius: 2, filter: platform === 'ga4' ? 'none' : 'grayscale(100%) opacity(0.6)' }} 
                       />
@@ -1145,7 +1145,7 @@ function App() {
                         padding: '8px', border: 'none', borderRadius: 6,
                         background: 'transparent',
                         color: platform === 'amplitude' ? '#1E61F0' : T.t500,
-                        fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                        fontSize: 12, fontWeight: 600, cursor: 'pointer',
                         transition: 'all 0.25s',
                         zIndex: 2,
                         position: 'relative',
@@ -1365,7 +1365,7 @@ function App() {
                           <span style={{
                             background: T.purple, color: '#fff',
                             padding: '2px 10px', borderRadius: 99,
-                            fontSize: 11, fontWeight: 700, letterSpacing: '0.01em',
+                            fontSize: 11, fontWeight: 600, letterSpacing: '0.01em',
                           }}>
                             {events.length} rows
                           </span>
@@ -1589,7 +1589,7 @@ function App() {
                           style={{
                             display: 'flex', alignItems: 'center', gap: 6,
                             padding: '6px 12px', border: `1px solid ${T.border}`, borderRadius: 6,
-                            background: '#FFF', color: T.t700, fontSize: 12, fontWeight: 700,
+                            background: '#FFF', color: T.t700, fontSize: 12, fontWeight: 600,
                             cursor: 'pointer', transition: 'all 0.15s',
                           }}
                           onMouseEnter={el => { el.currentTarget.style.borderColor = T.borderHover; el.currentTarget.style.color = T.purple; }}
@@ -1741,7 +1741,7 @@ function App() {
                           Previous
                         </button>
                         
-                        <span style={{ fontSize: 12.5, fontWeight: 700, color: T.t700, fontFamily: 'var(--font-display)' }}>
+                        <span style={{ fontSize: 12.5, fontWeight: 500, color: T.t500, fontFamily: 'var(--font-display)' }}>
                           Page {currentPage} of {totalPages}
                         </span>
                         
@@ -1793,7 +1793,7 @@ function App() {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
                       {/* Raw Inputs */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: T.t500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Raw Inputs</span>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: T.t500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Raw Inputs</span>
                         <textarea
                           value={converterInput}
                           onChange={e => { setConverterInput(e.target.value); setConverterCopied(false); }}
@@ -1817,7 +1817,7 @@ function App() {
                       {/* Converted Outputs */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: T.t500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>snake_case outputs</span>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: T.t500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>snake_case outputs</span>
                           {convertedText && (
                             <button
                               onClick={() => {
@@ -1831,7 +1831,7 @@ function App() {
                                 borderRadius: 5,
                                 padding: '2px 8px',
                                 fontSize: 11,
-                                fontWeight: 700,
+                                fontWeight: 600,
                                 color: converterCopied ? T.green700 : T.purple700,
                                 cursor: 'pointer',
                                 display: 'flex',
@@ -1922,7 +1922,7 @@ const stepsNumStyle = {
 };
 
 const stepsTitleStyle = {
-  fontSize: 12.5, fontWeight: 700, color: T.t900,
+  fontSize: 12.5, fontWeight: 600, color: T.t900,
   marginBottom: 4,
   fontFamily: 'var(--font-display)',
 };
@@ -1935,7 +1935,7 @@ const thStyle = ({ w, textRight = false }) => ({
   textAlign: textRight ? 'right' : 'left',
   padding: '12px 16px',
   fontSize: 10.5,
-  fontWeight: 700,
+  fontWeight: 600,
   color: T.t500,
   textTransform: 'uppercase',
   letterSpacing: '0.06em',
@@ -2006,7 +2006,7 @@ const actionButtonStyle = (active) => ({
 
 const subSectionTitle = {
   fontSize: 13,
-  fontWeight: 700,
+  fontWeight: 600,
   color: T.t700,
   marginBottom: 8,
   fontFamily: 'var(--font-display)',
