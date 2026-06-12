@@ -1,22 +1,25 @@
 # Features Index
 
+**Last updated:** 2026-06-08
+
 | Feature | Doc | Status | Key Files |
 |---------|-----|--------|-----------|
-| Screenshot Upload | — | complete | `public/app.jsx` |
-| Video Upload + Frame Extraction | — | complete | `public/app.jsx` (extractVideoFrames fn) |
+| Screenshot Upload | [UPLOAD_FLOW.md](upload/UPLOAD_FLOW.md) | complete | `public/app.jsx` (addFiles, toDataUrl) |
+| Video Upload + Frame Extraction | [UPLOAD_FLOW.md](upload/UPLOAD_FLOW.md) | complete | `public/app.jsx` (extractVideoFrames) |
 | GA4 / Amplitude Toggle | — | complete | `public/app.jsx`, `prompts/ga4.js`, `prompts/amplitude.js` |
 | Feature Context Input | — | complete | `public/app.jsx` |
-| Groq Vision Analysis | — | complete | `api/analyze.js` |
-| Events Table Output (tracking sheet format) | — | complete | `public/app.jsx` |
-| Copy as TSV | — | complete | `public/app.jsx` (copyTsv fn) |
-| Export CSV | — | complete | `public/app.jsx` (downloadCsv fn) |
-| Copy JSON | — | complete | `public/app.jsx` (copyJson fn) |
-| Specs History Log | — | complete | `public/app.jsx`, `api/history.js` (Neon PostgreSQL + localStorage fallback) |
-| Specs History Pagination | — | complete | `public/app.jsx` (historyPage state, 5 items/page) |
-| Naming Converter Tab | — | complete | `public/app.jsx` |
-| Batch Naming Converter | — | complete | `public/app.jsx` (standalone batch converter card in Naming Converter tab — real-time snake_case conversion of single/multiple names) |
-| Workspace Reset Tool | — | complete | `public/app.jsx` (resetWorkspace fn) |
-| Duplicate Generation Prevention | — | complete | `public/app.jsx` (generatedAttachments state lock + hint text) |
-| File Type Validation | — | complete | `public/app.jsx` (addFiles — MIME type + extension fallback, explicit error on unsupported type) |
-| Mobile Responsive Layout | — | complete | `public/index.html` (hamburger nav, guidelines grid single-col, reduced tab padding ≤768px) |
-
+| Groq Vision Analysis | [GROQ_ANALYSIS_FLOW.md](groq_analysis/GROQ_ANALYSIS_FLOW.md) | complete | `api/analyze.js`, `prompts/ga4.js`, `prompts/amplitude.js` |
+| Events Table Output | — | complete | `public/app.jsx` |
+| Inline Table Editing | — | complete | `public/app.jsx` (handleCellChange) |
+| Copy as TSV | — | complete | `public/app.jsx` (copyTsv) |
+| Export CSV | — | complete | `public/app.jsx` (downloadCsv) |
+| Copy JSON | — | complete | `public/app.jsx` (copyJson) |
+| Specs History Log | [SPECS_HISTORY_FLOW.md](specs_history/SPECS_HISTORY_FLOW.md) | complete | `api/history.js`, `api/db.js`, `public/app.jsx` |
+| Specs History Pagination | [SPECS_HISTORY_FLOW.md](specs_history/SPECS_HISTORY_FLOW.md) | complete | `public/app.jsx` (historyPage state, 5 items/page) |
+| Naming Converter Tab | [NAMING_CONVERTER_FLOW.md](naming_converter/NAMING_CONVERTER_FLOW.md) | complete | `public/app.jsx` (getValidationError, autoCorrect) |
+| Batch Naming Converter | [NAMING_CONVERTER_FLOW.md](naming_converter/NAMING_CONVERTER_FLOW.md) | complete | `public/app.jsx` |
+| Workspace Reset Tool | — | complete | `public/app.jsx` (resetWorkspace) |
+| Duplicate Generation Prevention | — | complete | `public/app.jsx` (generatedAttachments state lock) |
+| File Type Validation | [UPLOAD_FLOW.md](upload/UPLOAD_FLOW.md) | complete | `public/app.jsx` (addFiles — MIME + extension fallback) |
+| Mobile Responsive Layout | — | complete | `public/index.html` (hamburger nav, single-col grid ≤768px) |
+| Sample Value Normalisation | [GROQ_ANALYSIS_FLOW.md](groq_analysis/GROQ_ANALYSIS_FLOW.md) | complete | `api/analyze.js` (is_clicked → true/false, *_id → dynamic value) |

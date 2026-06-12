@@ -1,11 +1,15 @@
 # Feature → Code Ownership Map
 
+**Last updated:** 2026-06-08
+
 | File | Feature | Notes |
 |------|---------|-------|
-| `api/analyze.js` | Groq Vision Analysis | POST handler — validates input, calls Groq, parses JSON with regex fallback |
-| `public/app.jsx` | All UI features | Upload, video frame extraction, toggle, context input, table, TSV copy, specs history, naming guidelines tab, inline validator, reset tools |
-| `public/index.html` | App shell + mobile responsive | Loads React UMD + Babel standalone CDN; global styles; mobile breakpoints (hamburger nav, guidelines grid, tab padding) |
-| `public/logo.png` | Brand logo asset | Served locally to prevent CORS/hotlink protection blocks |
-| `prompts/ga4.js` | GA4 events format | GA4_PROMPT — defines tracking sheet columns + GA4 naming rules |
-| `prompts/amplitude.js` | Amplitude events format | AMP_PROMPT — defines tracking sheet columns + Amplitude naming rules |
-| `vercel.json` | Routing + config | outputDirectory=public, /api/* rewrites, 30s fn timeout |
+| `api/analyze.js` | Groq Vision Analysis, Sample Value Normalisation | POST handler — validates input, calls Groq, normalises events, returns JSON |
+| `api/db.js` | Specs History (DB layer) | Neon PostgreSQL pool + self-initialising `edvoy_specs_history` table via singleton `initPromise` |
+| `api/history.js` | Specs History CRUD | GET/POST/DELETE handler — wraps db.js; returns `{ history: [], warning }` if `DATABASE_URL` unset |
+| `public/app.jsx` | All UI features | Upload, video frame extraction, toggle, context, table, exports, history, naming converter, reset, mobile nav |
+| `public/index.html` | App shell + global styles | Loads React UMD + Babel CDN; CSS variables; shimmer/slide animations; mobile breakpoints; spin keyframes |
+| `public/logo.png` | Brand logo asset | Served locally — prevents CORS / hotlink protection from edvoy.com |
+| `prompts/ga4.js` | GA4 events format | `GA4_PROMPT` — tracking sheet column spec + GA4 snake_case naming rules |
+| `prompts/amplitude.js` | Amplitude events format | `AMP_PROMPT` — tracking sheet column spec + Amplitude Title Case naming rules |
+| `vercel.json` | Routing + config | `outputDirectory: public`, `/api/*` rewrites, 30s serverless fn timeout |

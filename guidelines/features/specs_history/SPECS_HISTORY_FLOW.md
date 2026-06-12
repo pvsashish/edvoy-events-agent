@@ -1,0 +1,79 @@
+# Specs History Flow
+
+**Last updated:** 2026-06-08
+**Status:** active
+
+## What It Does
+Persists every generated event spec to Neon PostgreSQL so PMs can retrieve and re-use past work. Falls back to localStorage if `DATABASE_URL` is unset. Supports pagination (5 items/page), individual delete, and clear-all.
+
+## Entry Points
+- Files: `api/history.js`, `api/db.js`
+- Routes: `GET /api/history`, `POST /api/history`, `DELETE /api/history`
+- Required env vars: `DATABASE_URL` (optional — degrades gracefully without it)
+
+## End-to-End Flow
+
+### Write (after Generate)
+1. User clicks "Generate Events" — frontend calls `POST /api/analyze` — `public/app.jsx:analyze()`
+2. On success, frontend constructs history item `{ id, name, timestamp, platform, eventsCount, events, featureContext }`
+3. Frontend POSTs item to `POST /api/history` — `public/app.jsx`
+4. `api/history.js` checks `DATABASE_URL` — if missing, returns `{ history: [], warning: '...' }` — `api/history.js:4`
+5. Calls `initDb()` from `api/db.js` — creates table if not exists (idempotent, singleton promise) — `api/db.js:14`
+6. INSERTs row, serialises `events` as JSON string — `api/history.js:48`
+7. Returns full updated history (DESC by `created_at`) — `api/history.js:55`
+
+### Read (History tab load)
+1. History tab mounts → frontend GETs `/api/history` — `public/app.jsx`
+2. `api/history.js` queries all rows ORDER BY `created_at DESC` — `api/history.js:27`
+3. Each row's `events` field parsed back from JSON string — `api/history.js:32`
+4. Frontend paginates: 5 items per page via `historyPage` state
+
+### Delete
+1. User clicks delete icon on history item — frontend DELETEs `{ id }` to `/api/history`
+2. `api/history.js` runs `DELETE WHERE id = $1` — `api/history.js:72`
+3. Returns full updated history
+4. `clearAll: true` in body → `DELETE FROM edvoy_specs_history` (no WHERE)
+
+## Hard Invariants
+- `DATABASE_URL` absence must NOT throw — returns empty array + warning
+- `initDb()` is idempotent — singleton `initPromise` prevents duplicate table creation on concurrent cold starts
+- `events` column stored as TEXT (JSON string), never raw object
+
+## API Contract
+**GET** → `{ history: HistoryItem[] }`
+**POST** body: `{ item: HistoryItem }` → `{ success: true, history: HistoryItem[] }`
+**DELETE** body: `{ id: string }` or `{ clearAll: true }` → `{ success: true, history: HistoryItem[] }`
+
+```ts
+type HistoryItem = {
+  id: string;
+  name: string;
+  timestamp: string;
+  platform: 'ga4' | 'amplitude';
+  eventsCount: number;
+  events: Event[];
+  featureContext?: string;
+}
+```
+
+## Fallback Behaviour
+If `DATABASE_URL` missing → `api/history.js` returns `{ history: [], warning }`. Frontend reads `warning` field and activates localStorage mode — stores/reads from `localStorage.getItem('edvoy_specs_history')`.
+
+## Error Handling
+- DB connection fail → 500 `err.message`
+- Missing `item` in POST → 400
+- Missing `id` in DELETE (non-clearAll) → 400
+- Non-GET/POST/DELETE → 405
+
+## Change Checklist
+Before modifying:
+- [ ] Verify `initDb()` singleton still works if called concurrently
+- [ ] Test DB-less fallback: remove DATABASE_URL, verify localStorage kicks in
+- [ ] Test pagination: generate >5 specs, verify page navigation works
+
+## Change Log
+| Date | Change | Author |
+|------|--------|--------|
+| 2026-06-08 | Added delete individual + clearAll support | session |
+| 2026-06-08 | Added pagination (5 items/page, historyPage state) | session |
+| 2026-06-07 | Initial implementation — Neon PostgreSQL + localStorage fallback | session |
