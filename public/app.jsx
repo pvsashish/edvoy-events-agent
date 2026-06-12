@@ -1673,7 +1673,7 @@ function App() {
                               ) : (
                                 <IconAmplitude size={16} style={{ borderRadius: 3, flexShrink: 0 }} />
                               )}
-                              <span style={{ fontFamily: 'var(--font-display)', fontSize: 13.5, fontWeight: 750, color: T.t900, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <span style={{ fontFamily: 'var(--font-display)', fontSize: 13.5, fontWeight: 700, color: T.t900, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {item.name.replace(/^(GA4|AMPLITUDE|Amplitude)\s+/i, '')}
                               </span>
                             </div>
