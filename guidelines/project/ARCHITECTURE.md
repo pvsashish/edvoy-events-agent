@@ -1,6 +1,6 @@
 # Architecture — Edvoy Events Agent
 
-**Last updated:** 2026-06-08
+**Last updated:** 2026-06-12
 
 ## What It Does
 PM tool for Edvoy's analytics team. Upload screenshots or videos of the Edvoy web portal or mobile app, select GA4 or Amplitude, and receive correctly formatted analytics events + parameters matching the tracking sheet format (Category, Suggested Event Name, Parameter, Sample Value). Specs are persisted to Neon PostgreSQL with localStorage fallback.
@@ -74,4 +74,5 @@ Table: `edvoy_specs_history`
 - Primary purple: `#7C3AED`
 - Page bg: `#F8FAFC` (light mode — Edvoy does not use dark mode)
 - Cards: `#FFFFFF` with `#EAECF0` border
-- Font: Inter (body 400/500/600, display 700/800) + Manrope (display headings)
+- Font: Inter only — 400 (inputs/mono), 500 (secondary text), 600 (buttons/labels), 700 (primary CTA), 800 (headings). No Manrope.
+- Icons: GA4 and Amplitude use official brand SVGs (inline, no external requests)

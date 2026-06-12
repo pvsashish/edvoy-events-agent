@@ -1,6 +1,6 @@
 # Specs History Flow
 
-**Last updated:** 2026-06-08
+**Last updated:** 2026-06-12
 **Status:** active
 
 ## What It Does
@@ -48,7 +48,7 @@ Persists every generated event spec to Neon PostgreSQL so PMs can retrieve and r
 type HistoryItem = {
   id: string;
   name: string;
-  timestamp: string;
+  timestamp: string; // ISO 8601 string (new Date().toISOString()); displayed via formatTimestamp() helper
   platform: 'ga4' | 'amplitude';
   eventsCount: number;
   events: Event[];
