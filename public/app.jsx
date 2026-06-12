@@ -292,6 +292,16 @@ function IconAmplitude({ size = 16, className = "", style = {} }) {
   );
 }
 
+function formatTimestamp(ts) {
+  if (!ts) return '';
+  // ISO string → consistent display format
+  if (/^\d{4}-\d{2}-\d{2}T/.test(ts)) {
+    const d = new Date(ts);
+    return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+  return ts; // legacy locale string stored before fix
+}
+
 function toSnakeCase(str) {
   if (!str) return '';
   return str
@@ -656,7 +666,7 @@ function App() {
         const newRecord = {
           id: Math.random().toString(36).slice(2),
           name: featureContext ? (featureContext.slice(0, 30) + (featureContext.length > 30 ? '...' : '')) : `Custom Event Spec`,
-          timestamp: new Date().toLocaleString(),
+          timestamp: new Date().toISOString(),
           platform,
           eventsCount: newEvents.length,
           events: newEvents,
@@ -1687,7 +1697,7 @@ function App() {
                             <div style={{ fontSize: 11, color: T.t400, marginTop: 6, display: 'flex', gap: 12 }}>
                               <span>Rows: {item.eventsCount}</span>
                               <span>•</span>
-                              <span>Generated: {item.timestamp}</span>
+                              <span>Generated: {formatTimestamp(item.timestamp)}</span>
                             </div>
                           </div>
 
