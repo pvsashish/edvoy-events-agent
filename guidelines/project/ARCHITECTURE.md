@@ -24,7 +24,9 @@ events-agent/
 │   ├── analyze.js       ← POST /api/analyze — calls Groq vision, normalises events JSON
 │   ├── db.js            ← Neon PostgreSQL pool + self-initialising table setup
 │   ├── history.js       ← GET/POST/DELETE /api/history — specs history CRUD
-│   └── screens.js       ← GET/POST/DELETE /api/screens — Scout event map CRUD
+│   ├── screens.js       ← GET/POST/DELETE /api/screens — Scout event map CRUD
+│   ├── settings.js      ← GET/POST /api/settings — shared app config (Google Sheets IDs, etc.)
+│   └── sheets.js        ← POST /api/sheets — fetch + parse Google Sheets CSV for tracking sheet sync
 ├── public/
 │   ├── index.html       ← Entry point; loads React UMD + Babel CDN; global CSS + animations
 │   ├── app.jsx          ← Full React app (sidebar nav, Generate tab, History tab, Naming tab, Scout tab)
@@ -48,6 +50,12 @@ events-agent/
 | `DATABASE_URL` | `.env` + Vercel env | Neon PostgreSQL connection string |
 
 ## Database Schema
+Table: `edvoy_settings`
+| Column | Type | Notes |
+|--------|------|-------|
+| `key` | VARCHAR PK | Setting name (e.g. `ga4_sheet_id`) |
+| `value` | TEXT | Setting value |
+
 Table: `edvoy_screens` (Scout)
 | Column | Type | Notes |
 |--------|------|-------|
