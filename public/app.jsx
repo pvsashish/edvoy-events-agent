@@ -653,18 +653,33 @@ function App() {
     }
   };
 
-  // Preload Scout data in background on app mount so first Scout tab open is instant
+  // Preload Scout list + all images in background on app mount
   useEffect(() => {
-    fetch('/api/screens')
-      .then(r => r.json())
-      .then(data => {
+    const preload = async () => {
+      try {
+        const data = await fetch('/api/screens').then(r => r.json());
         const results = data.screens || [];
         setScoutResults(results);
         setScoutSelected(results[0] || null);
         setScoutActiveEvent(results[0]?.events?.[0] || null);
         setScoutSearched(true);
-      })
-      .catch(() => {});
+
+        // Preload all images in background, 4 at a time
+        const BATCH = 4;
+        for (let i = 0; i < results.length; i += BATCH) {
+          await Promise.all(results.slice(i, i + BATCH).map(async (screen) => {
+            try {
+              const d = await fetch(`/api/screens?id=${encodeURIComponent(screen.id)}`).then(r => r.json());
+              if (d.screen?.image) {
+                setScoutResults(prev => prev.map(s => s.id === screen.id ? { ...s, image: d.screen.image } : s));
+                setScoutSelected(prev => prev?.id === screen.id ? { ...prev, image: d.screen.image } : prev);
+              }
+            } catch(e) {}
+          }));
+        }
+      } catch(e) {}
+    };
+    preload();
   }, []);
 
   // Auto-browse all screens the first time Scout tab is opened — no need to type anything
@@ -676,15 +691,16 @@ function App() {
 
   const scoutImgRef = useRef(null);
 
-  // Lazy-load image when screen is selected
+  // Lazy-load image on click only if not already preloaded
   useEffect(() => {
     if (!scoutSelected?.id) return;
-    if (scoutSelected.image) return; // already loaded
+    if (scoutSelected.image) return;
     setScoutImgLoading(true);
     fetch(`/api/screens?id=${encodeURIComponent(scoutSelected.id)}`)
       .then(r => r.json())
       .then(data => {
         if (data.screen?.image) {
+          setScoutResults(prev => prev.map(s => s.id === data.screen.id ? { ...s, image: data.screen.image } : s));
           setScoutSelected(prev => prev?.id === data.screen.id ? { ...prev, image: data.screen.image } : prev);
         }
       })
