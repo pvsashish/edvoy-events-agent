@@ -100,7 +100,41 @@ const CAT_COLOR = {
   'Login or Sign-up Flow': { bg: '#EFF6FF', fg: '#1D4ED8', dot: '#3B82F6' },
   'Genie Chatbot': { bg: '#FFF7ED', fg: '#C2410C', dot: '#F97316' },
   'Meet': { bg: '#F0F9FF', fg: '#0369A1', dot: '#0EA5E9' },
-  'Course Page': { bg: '#F5F3FF', fg: '#6D28D9', dot: '#7C3AED' }
+  'Course Page': { bg: '#F5F3FF', fg: '#6D28D9', dot: '#7C3AED' },
+  'Articles':   { bg: '#FFFBEB', fg: '#B45309', dot: '#F59E0B' },
+  'Compare':    { bg: '#F0FDFA', fg: '#0F766E', dot: '#14B8A6' },
+  'Compare page': { bg: '#F0FDFA', fg: '#0F766E', dot: '#14B8A6' },
+  'LP3 and LP4': { bg: '#FFF1F2', fg: '#BE123C', dot: '#F43F5E' },
+  'IELTS Page': { bg: '#FAF5FF', fg: '#7E22CE', dot: '#A855F7' },
+  'Referral':   { bg: '#FFF7ED', fg: '#B45309', dot: '#F97316' },
+  'Refer and Earn': { bg: '#FFF7ED', fg: '#B45309', dot: '#F97316' },
+  'Header Menu': { bg: '#F8FAFC', fg: '#475569', dot: '#94A3B8' },
+  'Footer Menu': { bg: '#F8FAFC', fg: '#475569', dot: '#94A3B8' },
+  'FAQs':       { bg: '#F0F9FF', fg: '#0369A1', dot: '#38BDF8' },
+  'App':        { bg: '#EEF2FF', fg: '#4338CA', dot: '#818CF8' },
+  'Career':     { bg: '#ECFDF5', fg: '#065F46', dot: '#10B981' },
+  'Courses':    { bg: '#F5F3FF', fg: '#6D28D9', dot: '#7C3AED' },
+  'Universities': { bg: '#EFF6FF', fg: '#1E40AF', dot: '#60A5FA' },
+  'Results':    { bg: '#F0FDF4', fg: '#166534', dot: '#4ADE80' },
+  'Testimonials': { bg: '#FDF2F8', fg: '#9D174D', dot: '#EC4899' },
+  'Login':      { bg: '#EFF6FF', fg: '#1D4ED8', dot: '#3B82F6' },
+  'Logout':     { bg: '#F8FAFC', fg: '#475569', dot: '#94A3B8' },
+  'Home':       { bg: '#FFFBEB', fg: '#92400E', dot: '#F59E0B' },
+  'Homepage':   { bg: '#FFFBEB', fg: '#92400E', dot: '#F59E0B' },
+  'Office Location Pages': { bg: '#F0FDFA', fg: '#0F766E', dot: '#14B8A6' },
+  'Events':     { bg: '#FAF5FF', fg: '#7E22CE', dot: '#A855F7' },
+  'Contact':    { bg: '#EFF6FF', fg: '#1D4ED8', dot: '#60A5FA' },
+  'Get Started': { bg: '#F0FDF4', fg: '#15803D', dot: '#22C55E' },
+  'Institution Page': { bg: '#EFF6FF', fg: '#1E40AF', dot: '#60A5FA' },
+  'Subject Page': { bg: '#EEF2FF', fg: '#4338CA', dot: '#6366F1' },
+  'Country Page': { bg: '#FFF1F2', fg: '#BE123C', dot: '#F43F5E' },
+  'City Page':  { bg: '#F0F9FF', fg: '#0369A1', dot: '#0EA5E9' },
+  'Genie page': { bg: '#FFF7ED', fg: '#C2410C', dot: '#F97316' },
+  'Genie or Check-Eligibility': { bg: '#FFF7ED', fg: '#C2410C', dot: '#F97316' },
+  'Exams':      { bg: '#FFFBEB', fg: '#B45309', dot: '#F59E0B' },
+  'For back':   { bg: '#F8FAFC', fg: '#475569', dot: '#94A3B8' },
+  'Form Filled': { bg: '#ECFDF5', fg: '#065F46', dot: '#10B981' },
+  'One Tap Signup': { bg: '#EFF6FF', fg: '#1D4ED8', dot: '#3B82F6' },
 };
 
 /* ─────────────────────────────────────────
@@ -164,6 +198,19 @@ function IconListChecks({ size = 18, color = 'currentColor' }) {
       <path d="M13 12h8"/>
       <path d="M13 18h8"/>
       <path d="m3 12 2 2 4-4"/>
+    </svg>
+  );
+}
+
+function IconScout({ size = 18, color = 'currentColor' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9"/>
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M12 3v3"/>
+      <path d="M12 18v3"/>
+      <path d="M3 12h3"/>
+      <path d="M18 12h3"/>
     </svg>
   );
 }
@@ -576,7 +623,83 @@ function generateThumbnail(dataUrl, maxWidth = 640) {
 ───────────────────────────────────────── */
 function App() {
   // Navigation
-  const [activeTab, setActiveTab]          = useState('generator'); // 'generator' | 'history' | 'guidelines'
+  const [activeTab, setActiveTab]          = useState('generator'); // 'generator' | 'history' | 'guidelines' | 'scout'
+
+  // Scout State (Event Map — isolated, own state, no shared logic with other tabs)
+  const [scoutQuery, setScoutQuery]        = useState('');
+  const [scoutResults, setScoutResults]    = useState([]);
+  const [scoutLoading, setScoutLoading]    = useState(false);
+  const [scoutSelected, setScoutSelected]  = useState(null);
+  const [scoutActiveEvent, setScoutActiveEvent] = useState(null);
+  const [scoutSearched, setScoutSearched]  = useState(false);
+  const [scoutImgDims, setScoutImgDims]    = useState({ w: 1, h: 1 });
+  const [scoutImgLoading, setScoutImgLoading] = useState(false);
+
+  const runScoutSearch = async (q) => {
+    setScoutLoading(true);
+    setScoutSearched(true);
+    try {
+      const res = await fetch(`/api/screens${q ? `?q=${encodeURIComponent(q)}` : ''}`);
+      const data = await res.json();
+      const results = data.screens || [];
+      setScoutResults(results);
+      setScoutSelected(results[0] || null);
+      setScoutActiveEvent(results[0]?.events?.[0] || null);
+    } catch (err) {
+      console.error('Scout search failed:', err);
+      setScoutResults([]);
+    } finally {
+      setScoutLoading(false);
+    }
+  };
+
+  // Preload Scout data in background on app mount so first Scout tab open is instant
+  useEffect(() => {
+    fetch('/api/screens')
+      .then(r => r.json())
+      .then(data => {
+        const results = data.screens || [];
+        setScoutResults(results);
+        setScoutSelected(results[0] || null);
+        setScoutActiveEvent(results[0]?.events?.[0] || null);
+        setScoutSearched(true);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Auto-browse all screens the first time Scout tab is opened — no need to type anything
+  useEffect(() => {
+    if (activeTab === 'scout' && !scoutSearched) {
+      runScoutSearch('');
+    }
+  }, [activeTab]);
+
+  const scoutImgRef = useRef(null);
+
+  // Lazy-load image when screen is selected
+  useEffect(() => {
+    if (!scoutSelected?.id) return;
+    if (scoutSelected.image) return; // already loaded
+    setScoutImgLoading(true);
+    fetch(`/api/screens?id=${encodeURIComponent(scoutSelected.id)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.screen?.image) {
+          setScoutSelected(prev => prev?.id === data.screen.id ? { ...prev, image: data.screen.image } : prev);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setScoutImgLoading(false));
+  }, [scoutSelected?.id]);
+
+  // Reset dims on screen change, then check if cached image already loaded
+  useEffect(() => {
+    setScoutImgDims({ w: 0, h: 0 });
+    const img = scoutImgRef.current;
+    if (img && img.complete && img.naturalWidth > 0) {
+      setScoutImgDims({ w: img.naturalWidth, h: img.naturalHeight });
+    }
+  }, [scoutSelected?.id]);
 
   // Generator State
   const [platform, setPlatform]            = useState('ga4');
@@ -1161,6 +1284,22 @@ function App() {
             <IconListChecks color={activeTab === 'guidelines' ? T.purple700 : T.t500} />
             Naming Converter
           </button>
+          <button
+            onClick={() => { setActiveTab('scout'); setMobileSidebarOpen(false); }}
+            className={`sidebar-nav-btn ${activeTab === 'scout' ? 'active' : ''}`}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              width: '100%', padding: '10px 14px', border: 'none', borderRadius: 8,
+              background: activeTab === 'scout' ? T.purple50 : 'transparent',
+              color: activeTab === 'scout' ? T.purple700 : T.t700,
+              fontSize: 13, fontWeight: activeTab === 'scout' ? 600 : 500,
+              cursor: 'pointer', textAlign: 'left',
+              fontFamily: 'var(--font-display)',
+            }}
+          >
+            <IconScout color={activeTab === 'scout' ? T.purple700 : T.t500} />
+            Scout
+          </button>
         </nav>
 
         {/* Tracking Sheet Sync — per platform */}
@@ -1366,6 +1505,7 @@ function App() {
               {activeTab === 'generator' && 'Event Tracking Generator'}
               {activeTab === 'history' && 'Event Specification History'}
               {activeTab === 'guidelines' && 'Batch Naming Converter'}
+              {activeTab === 'scout' && 'Scout — Event Map'}
             </h2>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -2194,6 +2334,162 @@ function App() {
                 );
               })()}
 
+            </div>
+          )}
+
+          {/* ─────────────────────────────────────────
+              Scout — Event Map (isolated, own state)
+          ───────────────────────────────────────── */}
+          {activeTab === 'scout' && (
+            <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div style={cardStyle}>
+                <div style={cardLabel}>Search</div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <input
+                    type="text"
+                    value={scoutQuery}
+                    onChange={(e) => setScoutQuery(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') runScoutSearch(scoutQuery); }}
+                    placeholder="Search by event name (click_view_application) or screen name (Course Details)…"
+                    style={{
+                      flex: 1, padding: '10px 14px', borderRadius: 8,
+                      border: `1px solid ${T.border}`, fontSize: 13.5,
+                      outline: 'none', fontFamily: 'var(--font-body)',
+                    }}
+                  />
+                  <button
+                    onClick={() => runScoutSearch(scoutQuery)}
+                    style={{
+                      padding: '10px 20px', borderRadius: 8, border: 'none',
+                      background: T.grad || T.purple, color: '#fff',
+                      fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                      fontFamily: 'var(--font-display)',
+                    }}
+                  >
+                    Search
+                  </button>
+                </div>
+              </div>
+
+              {scoutLoading && (
+                <div style={{ ...cardStyle, textAlign: 'center', color: T.t500, fontSize: 13 }}>
+                  Searching…
+                </div>
+              )}
+
+              {!scoutLoading && scoutSearched && scoutResults.length === 0 && (
+                <div style={{ ...cardStyle, textAlign: 'center', color: T.t500, fontSize: 13 }}>
+                  {scoutQuery
+                    ? `No matches for "${scoutQuery}".`
+                    : 'Repository is empty. It builds up as screens are crawled and saved.'}
+                </div>
+              )}
+
+              {!scoutLoading && scoutResults.length > 0 && (
+                <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+                  {/* Screen image with highlight overlay */}
+                  <div style={{ ...cardStyle, flex: 1, padding: 16 }}>
+                    {scoutSelected && (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: T.t900 }}>
+                            {scoutSelected.screenName}
+                          </span>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: T.t500, textTransform: 'uppercase' }}>
+                            {scoutSelected.platform}
+                          </span>
+                        </div>
+                        <div style={{ position: 'relative', display: 'inline-block', maxWidth: '100%' }}>
+                          {scoutImgLoading && !scoutSelected.image && (
+                            <div style={{ width: '100%', height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.t500, fontSize: 13 }}>
+                              Loading screenshot…
+                            </div>
+                          )}
+                          {scoutSelected.image && <img
+                            src={scoutSelected.image}
+                            alt={scoutSelected.screenName}
+                            style={{ maxWidth: '100%', borderRadius: 8, border: `1px solid ${T.border}`, display: 'block' }}
+                            ref={scoutImgRef}
+                            onLoad={(e) => {
+                              setScoutImgDims({ w: e.target.naturalWidth || 1, h: e.target.naturalHeight || 1 });
+                            }}
+                          />}
+                          {scoutSelected.image && scoutActiveEvent && scoutActiveEvent.bbox && scoutImgDims.w > 0 && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                left: `${(scoutActiveEvent.bbox[0] / scoutImgDims.w) * 100}%`,
+                                top: `${(scoutActiveEvent.bbox[1] / scoutImgDims.h) * 100}%`,
+                                width: `${(scoutActiveEvent.bbox[2] / scoutImgDims.w) * 100}%`,
+                                height: `${(scoutActiveEvent.bbox[3] / scoutImgDims.h) * 100}%`,
+                                border: '3px solid #FF3D00',
+                                borderRadius: 6,
+                                boxShadow: '0 0 0 2px #ffffff, 0 0 0 5px #FF3D00, 0 0 20px 4px rgba(255,61,0,0.65)',
+                                pointerEvents: 'none',
+                                transition: 'all 0.2s ease',
+                              }}
+                            />
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Results list + events for selected screen */}
+                  <div style={{ width: 320, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div style={cardStyle}>
+                      <div style={cardLabel}>Screens ({scoutResults.length})</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {scoutResults.map((s) => (
+                          <button
+                            key={s.id}
+                            onClick={() => { setScoutSelected(s); setScoutActiveEvent(s.events?.[0] || null); }}
+                            style={{
+                              textAlign: 'left', padding: '8px 10px', borderRadius: 6,
+                              border: `1px solid ${s.id === scoutSelected?.id ? T.purple700 : T.border}`,
+                              background: s.id === scoutSelected?.id ? T.purple50 : T.surface,
+                              cursor: 'pointer', fontSize: 12.5, fontWeight: 600,
+                              color: s.id === scoutSelected?.id ? T.purple700 : T.t700,
+                              fontFamily: 'var(--font-display)',
+                            }}
+                          >
+                            {s.screenName}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {scoutSelected && (
+                      <div style={cardStyle}>
+                        <div style={cardLabel}>Events on this screen</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {(scoutSelected.events || []).map((ev, i) => (
+                            <button
+                              key={i}
+                              onClick={() => setScoutActiveEvent(ev)}
+                              style={{
+                                textAlign: 'left', padding: '8px 10px', borderRadius: 6,
+                                border: `1px solid ${ev === scoutActiveEvent ? T.purple700 : T.border}`,
+                                background: ev === scoutActiveEvent ? T.purple50 : T.surface,
+                                cursor: 'pointer', fontFamily: "var(--font-mono)",
+                                fontSize: 11.5, color: ev === scoutActiveEvent ? T.purple700 : T.t700,
+                              }}
+                            >
+                              {ev.event_name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {!scoutSearched && !scoutLoading && (
+                <div style={{ ...cardStyle, textAlign: 'center', color: T.t500, fontSize: 13, padding: '40px 20px' }}>
+                  Loading repository…
+                </div>
+              )}
             </div>
           )}
 
