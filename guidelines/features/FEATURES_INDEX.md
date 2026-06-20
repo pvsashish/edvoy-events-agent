@@ -1,6 +1,6 @@
 # Features Index
 
-**Last updated:** 2026-06-08
+**Last updated:** 2026-06-21
 
 | Feature | Doc | Status | Key Files |
 |---------|-----|--------|-----------|
@@ -23,3 +23,4 @@
 | File Type Validation | [UPLOAD_FLOW.md](upload/UPLOAD_FLOW.md) | complete | `public/app.jsx` (addFiles — MIME + extension fallback) |
 | Mobile Responsive Layout | — | complete | `public/index.html` (hamburger nav, single-col grid ≤768px) |
 | Sample Value Normalisation | [GROQ_ANALYSIS_FLOW.md](groq_analysis/GROQ_ANALYSIS_FLOW.md) | complete | `api/analyze.js` (is_clicked → true/false, *_id → dynamic value) |
+| Scout — Event Map | [SCOUT_FLOW.md](scout/SCOUT_FLOW.md) | complete | `api/screens.js`, `api/db.js`, `public/app.jsx` (scoutQuery, scoutResults, runScoutSearch) |

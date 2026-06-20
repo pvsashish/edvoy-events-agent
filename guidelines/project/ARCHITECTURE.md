@@ -1,9 +1,9 @@
 # Architecture — Edvoy Events Agent
 
-**Last updated:** 2026-06-12
+**Last updated:** 2026-06-21
 
 ## What It Does
-PM tool for Edvoy's analytics team. Upload screenshots or videos of the Edvoy web portal or mobile app, select GA4 or Amplitude, and receive correctly formatted analytics events + parameters matching the tracking sheet format (Category, Suggested Event Name, Parameter, Sample Value). Specs are persisted to Neon PostgreSQL with localStorage fallback.
+PM tool for Edvoy's analytics team. Upload screenshots or videos of the Edvoy web portal or mobile app, select GA4 or Amplitude, and receive correctly formatted analytics events + parameters matching the tracking sheet format (Category, Suggested Event Name, Parameter, Sample Value). Specs are persisted to Neon PostgreSQL with localStorage fallback. Also includes Scout — a visual event map that shows real screenshots with highlighted UI elements for each tracked event.
 
 ## Users
 Edvoy product managers and analytics team.
@@ -23,10 +23,11 @@ events-agent/
 ├── api/
 │   ├── analyze.js       ← POST /api/analyze — calls Groq vision, normalises events JSON
 │   ├── db.js            ← Neon PostgreSQL pool + self-initialising table setup
-│   └── history.js       ← GET/POST/DELETE /api/history — specs history CRUD
+│   ├── history.js       ← GET/POST/DELETE /api/history — specs history CRUD
+│   └── screens.js       ← GET/POST/DELETE /api/screens — Scout event map CRUD
 ├── public/
 │   ├── index.html       ← Entry point; loads React UMD + Babel CDN; global CSS + animations
-│   ├── app.jsx          ← Full React app (sidebar nav, Generate tab, History tab, Naming tab)
+│   ├── app.jsx          ← Full React app (sidebar nav, Generate tab, History tab, Naming tab, Scout tab)
 │   └── logo.png         ← Local brand logo (avoids CORS / hotlink blocks from edvoy.com)
 ├── prompts/
 │   ├── ga4.js           ← GA4_PROMPT — system prompt with tracking sheet format + naming rules
@@ -47,6 +48,16 @@ events-agent/
 | `DATABASE_URL` | `.env` + Vercel env | Neon PostgreSQL connection string |
 
 ## Database Schema
+Table: `edvoy_screens` (Scout)
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | VARCHAR PK | `screen_<timestamp>_<random>` |
+| `screen_name` | VARCHAR | Must match a `CAT_COLOR` key |
+| `platform` | VARCHAR | `ga4` or `amplitude` |
+| `image` | TEXT | base64 data URL |
+| `events` | JSONB | `[{ event_name, label, bbox: [x,y,w,h] }]` |
+| `created_at` | TIMESTAMP | Auto-set |
+
 Table: `edvoy_specs_history`
 | Column | Type | Notes |
 |--------|------|-------|

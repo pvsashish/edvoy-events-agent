@@ -2414,7 +2414,7 @@ function App() {
                               setScoutImgDims({ w: e.target.naturalWidth || 1, h: e.target.naturalHeight || 1 });
                             }}
                           />}
-                          {scoutSelected.image && scoutActiveEvent && scoutActiveEvent.bbox && scoutImgDims.w > 0 && (
+                          {scoutSelected.image && scoutActiveEvent && scoutActiveEvent.bbox && scoutActiveEvent.bbox[2] > 0 && scoutImgDims.w > 0 && (
                             <div
                               style={{
                                 position: 'absolute',
@@ -2438,7 +2438,7 @@ function App() {
                   {/* Results list + events for selected screen */}
                   <div style={{ width: 320, display: 'flex', flexDirection: 'column', gap: 16 }}>
                     <div style={cardStyle}>
-                      <div style={cardLabel}>Screens ({scoutResults.length})</div>
+                      <div style={cardLabel}>Events ({scoutResults.length})</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         {scoutResults.map((s) => (
                           <button
@@ -2448,12 +2448,16 @@ function App() {
                               textAlign: 'left', padding: '8px 10px', borderRadius: 6,
                               border: `1px solid ${s.id === scoutSelected?.id ? T.purple700 : T.border}`,
                               background: s.id === scoutSelected?.id ? T.purple50 : T.surface,
-                              cursor: 'pointer', fontSize: 12.5, fontWeight: 600,
-                              color: s.id === scoutSelected?.id ? T.purple700 : T.t700,
+                              cursor: 'pointer',
                               fontFamily: 'var(--font-display)',
                             }}
                           >
-                            {s.screenName}
+                            <div style={{ fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-mono)', color: s.id === scoutSelected?.id ? T.purple700 : T.t700 }}>
+                              {s.events?.[0]?.event_name || s.screenName}
+                            </div>
+                            <div style={{ fontSize: 11, color: s.id === scoutSelected?.id ? T.purple500 : T.t400, marginTop: 2 }}>
+                              {s.screenName}
+                            </div>
                           </button>
                         ))}
                       </div>
