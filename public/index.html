@@ -108,7 +108,9 @@
 
     /* Editable Grid Inputs */
     td input {
-      border: 1px solid transparent !important;
+      /* No !important here — validation-error rows set their own inline
+         red border, which this rule would otherwise always override. */
+      border: 1px solid transparent;
       outline: none;
     }
     td input:hover {
@@ -364,6 +366,6 @@
 </head>
 <body>
   <div id="root"></div>
-  <script type="text/babel" src="/app.jsx?v=7" data-type="module"></script>
+  <script type="text/babel" src="/app.jsx?v=18" data-type="module"></script>
 </body>
 </html>

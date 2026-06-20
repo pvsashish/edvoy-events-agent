@@ -408,15 +408,18 @@ function CategoryBadge({ value }) {
   );
 }
 
-function AttachmentThumb({ item, onRemove }) {
+function AttachmentThumb({ item, onRemove, onPreview }) {
   return (
     <div style={{ position: 'relative', flexShrink: 0 }} className="fade-in attachment-thumb-hover">
       {item.type === 'video' ? (
-        <div style={{
-          width: 88, height: 58, borderRadius: 8,
-          border: `1px solid ${T.border}`,
-          overflow: 'hidden', position: 'relative', background: '#0F172A',
-        }}>
+        <div
+          onClick={() => onPreview && onPreview(item)}
+          style={{
+            width: 88, height: 58, borderRadius: 8,
+            border: `1px solid ${T.border}`,
+            overflow: 'hidden', position: 'relative', background: '#0F172A',
+            cursor: onPreview ? 'zoom-in' : 'default',
+          }}>
           {item.thumb && (
             <img src={item.thumb} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.55 }} alt="" />
           )}
@@ -436,7 +439,8 @@ function AttachmentThumb({ item, onRemove }) {
       ) : (
         <img
           src={item.dataUrl} alt="screen"
-          style={{ width: 88, height: 58, objectFit: 'cover', borderRadius: 8, border: `1px solid ${T.border}`, display: 'block' }}
+          onClick={() => onPreview && onPreview(item)}
+          style={{ width: 88, height: 58, objectFit: 'cover', borderRadius: 8, border: `1px solid ${T.border}`, display: 'block', cursor: onPreview ? 'zoom-in' : 'default' }}
         />
       )}
       <button
@@ -453,6 +457,73 @@ function AttachmentThumb({ item, onRemove }) {
         onMouseEnter={e => e.currentTarget.style.background = T.red700}
         onMouseLeave={e => e.currentTarget.style.background = T.t700}
       >✕</button>
+    </div>
+  );
+}
+
+function AttachmentPreviewModal({ item, onClose }) {
+  const [frameIdx, setFrameIdx] = React.useState(0);
+  React.useEffect(() => {
+    const handler = e => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  const isVideo = item.type === 'video';
+  const frames  = isVideo ? (item.frames || []) : null;
+  const src     = isVideo ? frames[frameIdx] : item.dataUrl;
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 2000,
+        background: 'rgba(0,0,0,0.88)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 24,
+      }}
+    >
+      <div onClick={e => e.stopPropagation()} style={{ position: 'relative', maxWidth: '90vw' }}>
+        <button
+          onClick={onClose}
+          style={{
+            position: 'absolute', top: -14, right: -14, zIndex: 10,
+            width: 28, height: 28, borderRadius: '50%',
+            background: 'rgba(255,255,255,0.15)', color: '#fff',
+            border: '1.5px solid rgba(255,255,255,0.3)',
+            fontSize: 13, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >✕</button>
+
+        <img
+          src={src} alt={item.name}
+          style={{ maxWidth: '82vw', maxHeight: '74vh', borderRadius: 10, display: 'block', objectFit: 'contain' }}
+        />
+
+        {isVideo && frames.length > 1 && (
+          <div style={{ display: 'flex', gap: 6, marginTop: 10, justifyContent: 'center' }}>
+            {frames.map((f, i) => (
+              <img
+                key={i} src={f} alt={`Frame ${i+1}`}
+                onClick={() => setFrameIdx(i)}
+                style={{
+                  width: 64, height: 42, objectFit: 'cover', borderRadius: 5,
+                  cursor: 'pointer',
+                  opacity: i === frameIdx ? 1 : 0.45,
+                  border: i === frameIdx ? '2px solid #fff' : '2px solid transparent',
+                  transition: 'opacity 0.15s',
+                }}
+              />
+            ))}
+          </div>
+        )}
+
+        <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, textAlign: 'center', marginTop: 8 }}>
+          {item.name}{isVideo ? ` · Frame ${frameIdx + 1} of ${frames.length}` : ''}
+          {item.fromHistory ? ' · Saved attachment' : ''}
+        </p>
+      </div>
     </div>
   );
 }
@@ -481,6 +552,26 @@ function SkeletonRows() {
 }
 
 /* ─────────────────────────────────────────
+   Thumbnail utility
+───────────────────────────────────────── */
+function generateThumbnail(dataUrl, maxWidth = 640) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxWidth / img.width);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.65));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+/* ─────────────────────────────────────────
    Main App
 ───────────────────────────────────────── */
 function App() {
@@ -492,6 +583,7 @@ function App() {
   const [featureContext, setFeatureContext] = useState('');
   const [attachments, setAttachments]      = useState([]);
   const [generatedAttachments, setGeneratedAttachments] = useState([]);
+  const [generatedContext, setGeneratedContext]         = useState('');
   const [events, setEvents]                = useState([]);
   const [loading, setLoading]              = useState(false);
   const [processing, setProcessing]        = useState(false);
@@ -499,13 +591,36 @@ function App() {
   
   // Interactions
   const [copiedState, setCopiedState]      = useState(''); // '', 'tsv', 'csv', 'json'
+  const [exportError, setExportError]      = useState('');
   const [dragging, setDragging]            = useState(false);
   const [history, setHistory]              = useState([]);
   const [historyPage, setHistoryPage]      = useState(1);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [converterInput, setConverterInput]       = useState('');
   const [converterCopied, setConverterCopied]     = useState(false);
-  
+
+  // Google Sheets sync — per platform { ga4: {url,data}, amplitude: {url,data} }
+  const [sheetConfig, setSheetConfig]         = useState(() => {
+    try {
+      const cfg = JSON.parse(localStorage.getItem('edvoy_sheet_config') || '{}');
+      // migrate old single-sheet format
+      const oldData = JSON.parse(localStorage.getItem('edvoy_sheet_data') || 'null');
+      const oldUrl  = localStorage.getItem('edvoy_sheet_url') || '';
+      if (oldUrl && oldData && !cfg.ga4) cfg.ga4 = { url: oldUrl, data: oldData };
+      return cfg;
+    } catch { return {}; }
+  });
+  const [sheetSyncingFor, setSheetSyncingFor] = useState(null); // null | 'ga4' | 'amplitude'
+  const [sheetInputFor, setSheetInputFor]     = useState(null); // null | 'ga4' | 'amplitude'
+  const [sheetUrlDrafts, setSheetUrlDrafts]   = useState({ ga4: '', amplitude: '' });
+  const [sheetSyncError, setSheetSyncError]   = useState(null); // { key, message } | null
+
+  // History thumbnails stored in localStorage only (not in DB)
+  const [historyThumbs, setHistoryThumbs]     = useState(() => { try { return JSON.parse(localStorage.getItem('edvoy_history_thumbs') || '{}'); } catch { return {}; } });
+
+  // Attachment preview lightbox
+  const [previewAttachment, setPreviewAttachment] = useState(null);
+
   const fileRef                            = useRef();
   const resultsRef                         = useRef();
   const copiedTimeoutRef                   = useRef(null);
@@ -529,6 +644,20 @@ function App() {
         console.error('Failed to load history from DB, falling back to localStorage:', e);
         const stored = localStorage.getItem('edvoy_specs_history');
         if (stored) setHistory(JSON.parse(stored));
+      }
+
+      // Load sheet config from DB (shared across all users/browsers)
+      try {
+        const res = await fetch('/api/settings');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.settings?.sheet_config) {
+            setSheetConfig(data.settings.sheet_config);
+            try { localStorage.setItem('edvoy_sheet_config', JSON.stringify(data.settings.sheet_config)); } catch {}
+          }
+        }
+      } catch (e) {
+        console.warn('Could not load sheet config from DB:', e);
       }
     };
     loadInit();
@@ -563,8 +692,46 @@ function App() {
     }
   };
 
+  const syncSheet = async (p, url) => {
+    const cleanUrl = (url || sheetConfig[p]?.url || '').trim();
+    if (!cleanUrl) {
+      // URL missing — prompt user to re-enter it
+      setSheetInputFor(p);
+      setSheetUrlDrafts(prev => ({ ...prev, [p]: '' }));
+      return;
+    }
+    setSheetSyncingFor(p);
+    try {
+      const res = await fetch('/api/sheets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sheetUrl: cleanUrl }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Sync failed');
+      setSheetConfig(prev => {
+        const next = { ...prev, [p]: { url: cleanUrl, data } };
+        try { localStorage.setItem('edvoy_sheet_config', JSON.stringify(next)); } catch {}
+        // Save to DB so all users/browsers share the same sheet config
+        fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: 'sheet_config', value: next }),
+        }).catch(err => console.warn('Could not save sheet config to DB:', err));
+        return next;
+      });
+      setSheetInputFor(null);
+      setSheetUrlDrafts(prev => ({ ...prev, [p]: '' }));
+      setSheetSyncError(null);
+    } catch (err) {
+      setSheetSyncError({ key: p, message: err.message });
+      setTimeout(() => setSheetSyncError(prev => (prev?.key === p ? null : prev)), 6000);
+    } finally {
+      setSheetSyncingFor(null);
+    }
+  };
+
   const handlePlatformChange = (newPlatform) => {
-    console.log('Switching platform to:', newPlatform);
     if (newPlatform === platform) return;
     setPlatform(newPlatform);
     if (events.length > 0) {
@@ -583,7 +750,6 @@ function App() {
         };
       });
       setEvents(converted);
-      console.log('Auto-converted events:', converted);
     }
   };
 
@@ -648,7 +814,13 @@ function App() {
       const res  = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images, platform, featureContext }),
+        body: JSON.stringify({
+          images, platform, featureContext,
+          sheetData: sheetConfig[platform]?.data || null,
+          // Cross-reference the other product's tracking sheet so Portal (GA4) and
+          // App (Amplitude) stay consistent — mirror naming when an equivalent flow exists.
+          crossData: platform === 'amplitude' ? (sheetConfig.ga4?.data || null) : (sheetConfig.amplitude?.data || null),
+        }),
         signal: controller.signal,
       });
       const data = await res.json();
@@ -660,6 +832,7 @@ function App() {
       }));
       setEvents(newEvents);
       setGeneratedAttachments([...attachments]);
+      setGeneratedContext(featureContext);
 
       // Automatically append to history
       if (newEvents.length > 0) {
@@ -673,6 +846,18 @@ function App() {
           featureContext
         };
         saveHistory([newRecord, ...history], newRecord);
+
+        // Generate and save a compressed thumbnail to localStorage for this record
+        if (images[0]) {
+          generateThumbnail(images[0]).then(thumb => {
+            if (!thumb) return;
+            setHistoryThumbs(prev => {
+              const next = { ...prev, [newRecord.id]: thumb };
+              try { localStorage.setItem('edvoy_history_thumbs', JSON.stringify(next)); } catch {}
+              return next;
+            });
+          });
+        }
       }
 
       // Scroll to results
@@ -752,11 +937,13 @@ function App() {
   };
 
   // Copy/Export helpers
+  const blockExportWithError = () => {
+    setExportError('Some tracking rows have naming convention errors. Please correct the highlighted errors before exporting.');
+    setTimeout(() => setExportError(''), 4000);
+  };
+
   const copyTsv = () => {
-    if (hasValidationErrors()) {
-      alert('Some tracking rows have naming convention errors. Please correct the highlighted errors before exporting.');
-      return;
-    }
+    if (hasValidationErrors()) { blockExportWithError(); return; }
     const cols = ['category', 'suggested_event_name', 'parameter', 'sample_value'];
     const header = cols.map(c => c.toUpperCase().replace(/_/g, ' ')).join('\t');
     const rows = events.map(e => cols.map(c => e[c] ?? '').join('\t'));
@@ -765,10 +952,7 @@ function App() {
   };
 
   const downloadCsv = () => {
-    if (hasValidationErrors()) {
-      alert('Some tracking rows have naming convention errors. Please correct the highlighted errors before exporting.');
-      return;
-    }
+    if (hasValidationErrors()) { blockExportWithError(); return; }
     const cols = ['category', 'suggested_event_name', 'parameter', 'sample_value'];
     const header = cols.map(c => `"${c.toUpperCase().replace(/_/g, ' ')}"`).join(',');
     const rows = events.map(e => cols.map(c => `"${(e[c] ?? '').replace(/"/g, '""')}"`).join(','));
@@ -784,10 +968,7 @@ function App() {
   };
 
   const copyJson = () => {
-    if (hasValidationErrors()) {
-      alert('Some tracking rows have naming convention errors. Please correct the highlighted errors before exporting.');
-      return;
-    }
+    if (hasValidationErrors()) { blockExportWithError(); return; }
     navigator.clipboard.writeText(JSON.stringify(events, null, 2));
     startCopyTimeout('json');
   };
@@ -800,8 +981,18 @@ function App() {
       _rowId: ev._rowId || Math.random().toString(36).slice(2)
     }));
     setEvents(mapped);
-    setAttachments([]);
-    setGeneratedAttachments([]);
+
+    // Restore saved thumbnail if available
+    const thumb = historyThumbs[item.id];
+    if (thumb) {
+      const thumbAtt = [{ id: item.id + '_hist', type: 'image', name: 'Attachment (history)', dataUrl: thumb, fromHistory: true }];
+      setAttachments(thumbAtt);
+      setGeneratedAttachments(thumbAtt);
+    } else {
+      setAttachments([]);
+      setGeneratedAttachments([]);
+    }
+
     setActiveTab('generator');
     setError('');
   };
@@ -810,6 +1001,13 @@ function App() {
     e.stopPropagation();
     const next = history.filter(h => h.id !== id);
     saveHistory(next);
+    // Clean up thumbnail
+    setHistoryThumbs(prev => {
+      const updated = { ...prev };
+      delete updated[id];
+      try { localStorage.setItem('edvoy_history_thumbs', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
     try {
       await fetch('/api/history', {
         method: 'DELETE',
@@ -825,6 +1023,8 @@ function App() {
     if (confirm('Are you sure you want to clear your local and cloud specs history?')) {
       saveHistory([]);
       setHistoryPage(1);
+      setHistoryThumbs({});
+      try { localStorage.removeItem('edvoy_history_thumbs'); } catch {}
       try {
         await fetch('/api/history', {
           method: 'DELETE',
@@ -854,6 +1054,7 @@ function App() {
 
   const isSameAttachments = events.length > 0 &&
     attachments.length > 0 &&
+    featureContext === generatedContext &&
     attachments.length === generatedAttachments.length &&
     attachments.every((a, idx) => a.id === generatedAttachments[idx]?.id);
 
@@ -961,6 +1162,105 @@ function App() {
             Naming Converter
           </button>
         </nav>
+
+        {/* Tracking Sheet Sync — per platform */}
+        <div style={{ padding: '0 12px 16px' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: T.t400, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8, paddingLeft: 2 }}>
+            Tracking Sheets
+          </div>
+          {[{ key: 'ga4', label: 'GA4' }, { key: 'amplitude', label: 'Amplitude' }].map(({ key, label }) => {
+            const cfg     = sheetConfig[key];
+            const syncing = sheetSyncingFor === key;
+            const open    = sheetInputFor === key;
+            const draft   = sheetUrlDrafts[key] || '';
+            return (
+              <div key={key} style={{ marginBottom: 8 }}>
+                {cfg?.data ? (
+                  <div style={{ background: T.purple50, borderRadius: 8, padding: '8px 10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: T.purple700 }}>✓ {label}</span>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => { setSheetInputFor(open ? null : key); setSheetUrlDrafts(p => ({ ...p, [key]: cfg.url || '' })); }}
+                          style={{ fontSize: 10, color: open ? T.purple700 : T.t500, fontWeight: open ? 600 : 400, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                          {open ? 'Done' : 'Edit'}</button>
+                        <button onClick={() => syncSheet(key)} disabled={syncing}
+                          style={{ fontSize: 10, fontWeight: 600, color: T.purple700, background: 'none', border: 'none', cursor: syncing ? 'default' : 'pointer', padding: 0 }}>
+                          {syncing ? 'Syncing…' : 'Re-sync'}</button>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 10, color: T.t500, marginTop: 2 }}>
+                      {cfg.data.rowCount} rows · {cfg.data.parameters?.length} params
+                      {cfg.data.gid && cfg.data.gid !== '0' && <span style={{ color: T.purple600 }}> · tab #{cfg.data.gid}</span>}
+                    </div>
+                  </div>
+                ) : !open ? (
+                  <button
+                    onClick={() => setSheetInputFor(key)}
+                    style={{
+                      width: '100%', padding: '7px 10px',
+                      border: `1px dashed ${T.border}`, borderRadius: 8,
+                      background: 'none', color: T.t500,
+                      fontSize: 11, fontWeight: 500, cursor: 'pointer',
+                      textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6,
+                      fontFamily: 'var(--font-display)',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = T.purple300; e.currentTarget.style.color = T.purple700; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.t500; }}
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                    Connect {label} sheet
+                  </button>
+                ) : null}
+
+                {open && (
+                  <div style={{ marginTop: 6 }}>
+                    <input
+                      type="text"
+                      placeholder={`Paste ${label} tab URL…`}
+                      value={draft}
+                      onChange={e => setSheetUrlDrafts(p => ({ ...p, [key]: e.target.value }))}
+                      onKeyDown={e => { if (e.key === 'Enter' && draft.trim()) syncSheet(key, draft.trim()); }}
+                      style={{
+                        width: '100%', padding: '7px 10px',
+                        border: `1px solid ${T.border}`, borderRadius: 6,
+                        fontSize: 11, fontFamily: 'var(--font-display)',
+                        color: T.t700, background: T.surface,
+                        boxSizing: 'border-box', outline: 'none',
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: 6, marginTop: 5 }}>
+                      <button
+                        onClick={() => { if (draft.trim()) syncSheet(key, draft.trim()); }}
+                        disabled={syncing || !draft.trim()}
+                        style={{
+                          flex: 1, padding: '6px 0',
+                          background: (!draft.trim() || syncing) ? T.border : T.grad,
+                          color: (!draft.trim() || syncing) ? T.t400 : '#fff',
+                          border: 'none', borderRadius: 6,
+                          fontSize: 11, fontWeight: 600,
+                          cursor: (!draft.trim() || syncing) ? 'not-allowed' : 'pointer',
+                          fontFamily: 'var(--font-display)',
+                        }}
+                      >{syncing ? 'Connecting…' : 'Connect & Sync'}</button>
+                      <button
+                        onClick={() => { setSheetInputFor(null); setSheetUrlDrafts(p => ({ ...p, [key]: '' })); }}
+                        style={{ padding: '6px 10px', background: 'none', border: `1px solid ${T.border}`, borderRadius: 6, fontSize: 11, color: T.t500, cursor: 'pointer', fontFamily: 'var(--font-display)' }}
+                      >Cancel</button>
+                    </div>
+                    <p style={{ fontSize: 10, color: T.t400, marginTop: 5, lineHeight: 1.5 }}>
+                      Open the exact tab → copy URL → paste. Share as "Anyone with the link can view".
+                    </p>
+                  </div>
+                )}
+                {sheetSyncError?.key === key && (
+                  <p style={{ fontSize: 10.5, color: T.red700, marginTop: 5, lineHeight: 1.5, background: T.red50, border: `1px solid ${T.red200}`, borderRadius: 6, padding: '5px 8px' }}>
+                    {sheetSyncError.message}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
 
         {/* Workspace Profile Footer */}
         <div style={{
@@ -1259,6 +1559,7 @@ function App() {
                         <AttachmentThumb
                           key={a.id} item={a}
                           onRemove={() => setAttachments(p => p.filter(x => x.id !== a.id))}
+                          onPreview={setPreviewAttachment}
                         />
                       ))}
                     </div>
@@ -1420,6 +1721,16 @@ function App() {
                         </div>
                       )}
                     </div>
+
+                    {exportError && (
+                      <div style={{
+                        background: T.red50, border: `1px solid ${T.red200}`,
+                        borderBottom: 'none', padding: '10px 24px', fontSize: 12,
+                        color: T.red700, fontWeight: 500, lineHeight: 1.4,
+                      }}>
+                        {exportError}
+                      </div>
+                    )}
 
                     {/* Editable Grid Table */}
                     <div style={{ overflowX: 'auto' }}>
@@ -1624,7 +1935,7 @@ function App() {
             <div className="fade-in" style={{ maxWidth: 840, margin: '0 auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                 <div style={{ fontSize: 13, color: T.t500 }}>
-                  Review and load specifications previously generated on this device.
+                  Review and load specifications previously generated by your team.
                 </div>
                 {history.length > 0 && (
                   <button
@@ -1702,6 +2013,13 @@ function App() {
                           </div>
 
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                            {historyThumbs[item.id] && (
+                              <img
+                                src={historyThumbs[item.id]}
+                                alt=""
+                                style={{ width: 60, height: 38, objectFit: 'cover', borderRadius: 6, border: `1px solid ${T.border}`, flexShrink: 0, display: 'block' }}
+                              />
+                            )}
                             <button
                               onClick={(e) => deleteHistoryItem(item.id, e)}
                               style={{
@@ -1881,6 +2199,13 @@ function App() {
 
         </div>
       </main>
+
+      {previewAttachment && (
+        <AttachmentPreviewModal
+          item={previewAttachment}
+          onClose={() => setPreviewAttachment(null)}
+        />
+      )}
     </div>
   );
 }

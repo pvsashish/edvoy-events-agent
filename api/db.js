@@ -26,6 +26,11 @@ export const initDb = () => {
       feature_context TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS edvoy_settings (
+      key VARCHAR(255) PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
   `;
 
   initPromise = (async () => {
