@@ -42,7 +42,8 @@ State: `scoutQuery`, `scoutResults`, `scoutSelected`, `scoutActiveEvent`, `scout
 
 Key behaviours:
 - Auto-loads all records on Scout tab open (`runScoutSearch('')`)
-- List lazy-loads images — image fetched only when a screen is selected (`GET /api/screens?id=`)
+- **Image preloading**: on app mount, after list loads, all images are fetched in background (batches of 4) and stored in `scoutResults` state — clicking any event is instant
+- On-demand fetch (`GET /api/screens?id=`) remains as fallback if preload hasn't reached that image yet
 - Event list shows `event_name` (mono font) + `screenName` below it for disambiguation
 - Clicking an event → if `bbox[2] > 0`, renders red-orange highlight box (`#FF3D00`) positioned via `%` of natural image dimensions
 
