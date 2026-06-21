@@ -31,12 +31,13 @@ edvoy_screens (
 
 **bbox:** `[x, y, width, height]` in raw pixels of the screenshot. Always `[0,0,0,0]` for manually captured screenshots (highlight is drawn into the image itself). Scout skips rendering the overlay when `bbox[2] === 0`.
 
-## Current Categories (84 records across 21 screens)
+## Current Categories (90 records across 22 screens)
 | screenName | Records |
 |---|---|
 | App | 2 |
 | Articles | 3 |
 | Career | 1 |
+| City Page | 6 |
 | Compare | 1 |
 | Compare page | 1 |
 | Contact | 7 |
