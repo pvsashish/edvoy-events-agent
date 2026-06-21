@@ -1,6 +1,6 @@
 # Architecture — Edvoy Events Agent
 
-**Last updated:** 2026-06-21
+**Last updated:** 2026-06-21 (Scout bulk ingestion complete — 84 events, 21 categories)
 
 ## What It Does
 PM tool for Edvoy's analytics team. Upload screenshots or videos of the Edvoy web portal or mobile app, select GA4 or Amplitude, and receive correctly formatted analytics events + parameters matching the tracking sheet format (Category, Suggested Event Name, Parameter, Sample Value). Specs are persisted to Neon PostgreSQL with localStorage fallback. Also includes Scout — a visual event map that shows real screenshots with highlighted UI elements for each tracked event.
@@ -87,6 +87,8 @@ Table: `edvoy_specs_history`
 - **JSON parse fallback**: Regex extracts `[…]` from model response in case it wraps in markdown fences.
 - **Sample value normalisation**: `is_clicked` params → `true/false`; `*_id` params → `dynamic value` (enforced in `api/analyze.js`).
 - **DB-less fallback**: `api/history.js` returns empty array (not an error) when `DATABASE_URL` is unset; frontend falls back to localStorage.
+- **Neon SSL retry**: `api/screens.js` wraps all `pool.query` calls in `queryWithRetry` (2 retries, 3s delay) to handle intermittent Neon SSL `bad record mac` errors. Pool is capped at `max: 1` connection.
+- **Scout ingestion**: source of truth is PM-provided screenshot folders (one PNG per event, named `<event_name>.png`). `<event_name> - 2.png` = same event firing in a second place; full filename kept as `event_name`. bbox is always `[0,0,0,0]` for manually captured shots.
 
 ## Brand Guidelines (Edvoy)
 - Header gradient: `linear-gradient(45deg, #321386, #9C20D7)`

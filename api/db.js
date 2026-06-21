@@ -4,9 +4,10 @@ const { Pool } = pg;
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  ssl: { rejectUnauthorized: false },
+  max: 1,
+  idleTimeoutMillis: 5000,
+  connectionTimeoutMillis: 10000,
 });
 
 // Self-initializing table verification

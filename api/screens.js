@@ -1,5 +1,20 @@
 import pool, { initDb } from './db.js';
 
+async function queryWithRetry(text, params, retries = 2, delayMs = 3000) {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      return await pool.query(text, params);
+    } catch (err) {
+      const isSSL = err.message?.includes('SSL') || err.message?.includes('ssl');
+      if (isSSL && i < retries) {
+        await new Promise(r => setTimeout(r, delayMs));
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
@@ -21,7 +36,7 @@ export default async function handler(req, res) {
 
       // Single screen with image (for lazy load on select)
       if (id) {
-        const dbRes = await pool.query(
+        const dbRes = await queryWithRetry(
           `SELECT id, screen_name AS "screenName", platform, image, events, created_at AS "createdAt"
            FROM edvoy_screens WHERE id = $1`,
           [id]
@@ -32,7 +47,7 @@ export default async function handler(req, res) {
 
       // List — no image column (fast)
       if (q) {
-        const dbRes = await pool.query(
+        const dbRes = await queryWithRetry(
           `SELECT id, screen_name AS "screenName", platform, events, created_at AS "createdAt"
            FROM edvoy_screens
            WHERE screen_name ILIKE $1
@@ -46,7 +61,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ screens: dbRes.rows });
       }
 
-      const dbRes = await pool.query(
+      const dbRes = await queryWithRetry(
         `SELECT id, screen_name AS "screenName", platform, events, created_at AS "createdAt"
          FROM edvoy_screens ORDER BY created_at DESC`
       );
@@ -62,7 +77,7 @@ export default async function handler(req, res) {
 
       const rowId = id || `screen_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-      await pool.query(
+      await queryWithRetry(
         `INSERT INTO edvoy_screens (id, screen_name, platform, image, events)
          VALUES ($1, $2, $3, $4, $5)`,
         [rowId, screenName, platform, image, JSON.stringify(events)]
@@ -75,7 +90,7 @@ export default async function handler(req, res) {
       const { id, clearAll } = req.body || {};
 
       if (clearAll) {
-        await pool.query('DELETE FROM edvoy_screens');
+        await queryWithRetry('DELETE FROM edvoy_screens');
         return res.status(200).json({ success: true });
       }
 
@@ -83,7 +98,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Missing id' });
       }
 
-      await pool.query('DELETE FROM edvoy_screens WHERE id = $1', [id]);
+      await queryWithRetry('DELETE FROM edvoy_screens WHERE id = $1', [id]);
       return res.status(200).json({ success: true });
     }
 
