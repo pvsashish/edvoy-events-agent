@@ -637,32 +637,49 @@ function App() {
   const [scoutLastSearchQuery, setScoutLastSearchQuery] = useState('');
   const [scoutDisplayedImage, setScoutDisplayedImage] = useState(null);
   const [scoutPlatformFilter, setScoutPlatformFilter] = useState('all');
+  const [scoutAllResults, setScoutAllResults]         = useState([]); // full unfiltered list, set once on mount
 
-  const runScoutSearch = async (q) => {
-    setScoutLoading(true);
+  const runScoutSearch = (q) => {
+    const norm = q.trim().toLowerCase();
+    setScoutLastSearchQuery(q.trim());
     setScoutSearched(true);
-    setScoutLastSearchQuery(q);
-    try {
-      const res = await fetch(`/api/screens${q ? `?q=${encodeURIComponent(q)}` : ''}`);
-      const data = await res.json();
-      const results = data.screens || [];
-      setScoutResults(results);
-      setScoutSelected(results[0] || null);
-      setScoutActiveEvent(results[0]?.events?.[0] || null);
-    } catch (err) {
-      console.error('Scout search failed:', err);
-      setScoutResults([]);
-    } finally {
-      setScoutLoading(false);
+
+    // Fallback: DB query if mount preload hasn't landed yet
+    if (!scoutAllResults.length) {
+      setScoutLoading(true);
+      fetch(`/api/screens${norm ? `?q=${encodeURIComponent(norm)}` : ''}`)
+        .then(r => r.json())
+        .then(data => {
+          const results = data.screens || [];
+          setScoutAllResults(results);
+          setScoutResults(results);
+          setScoutSelected(results[0] || null);
+          setScoutActiveEvent(results[0]?.events?.[0] || null);
+        })
+        .catch(err => { console.error('Scout search failed:', err); setScoutResults([]); })
+        .finally(() => setScoutLoading(false));
+      return;
     }
+
+    // In-memory filter — instant, no network
+    const filtered = norm
+      ? scoutAllResults.filter(r =>
+          r.screenName?.toLowerCase().includes(norm) ||
+          r.events?.some(ev => ev.event_name?.toLowerCase().includes(norm))
+        )
+      : scoutAllResults;
+    setScoutResults(filtered);
+    setScoutSelected(filtered[0] || null);
+    setScoutActiveEvent(filtered[0]?.events?.[0] || null);
   };
 
-  // Preload Scout list + all images in background on app mount
+  // Mount: load full list into scoutAllResults, then preload all images in background
   useEffect(() => {
     const preload = async () => {
       try {
         const data = await fetch('/api/screens').then(r => r.json());
         const results = data.screens || [];
+        setScoutAllResults(results);
         setScoutResults(results);
         setScoutSelected(results[0] || null);
         setScoutActiveEvent(results[0]?.events?.[0] || null);
@@ -675,7 +692,9 @@ function App() {
             try {
               const d = await fetch(`/api/screens?id=${encodeURIComponent(screen.id)}`).then(r => r.json());
               if (d.screen?.image) {
-                setScoutResults(prev => prev.map(s => s.id === screen.id ? { ...s, image: d.screen.image } : s));
+                const patch = s => s.id === screen.id ? { ...s, image: d.screen.image } : s;
+                setScoutAllResults(prev => prev.map(patch));
+                setScoutResults(prev => prev.map(patch));
                 setScoutSelected(prev => prev?.id === screen.id ? { ...prev, image: d.screen.image } : prev);
               }
             } catch(e) {}
