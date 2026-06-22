@@ -636,6 +636,7 @@ function App() {
   const [scoutImgLoading, setScoutImgLoading] = useState(false);
   const [scoutLastSearchQuery, setScoutLastSearchQuery] = useState('');
   const [scoutDisplayedImage, setScoutDisplayedImage] = useState(null);
+  const [scoutPlatformFilter, setScoutPlatformFilter] = useState('all');
 
   const runScoutSearch = async (q) => {
     setScoutLoading(true);
@@ -2375,6 +2376,31 @@ function App() {
                 text.slice(idx + query.length)
               );
             };
+
+            const ga4Count = scoutResults.filter(r => r.platform === 'ga4').length;
+            const ampCount = scoutResults.filter(r => r.platform === 'amplitude').length;
+            const filteredResults = scoutPlatformFilter === 'all'
+              ? scoutResults
+              : scoutResults.filter(r => r.platform === scoutPlatformFilter);
+
+            // Group by screenName preserving search-relevance order
+            const groups = [];
+            const seenScreens = new Map();
+            for (const r of filteredResults) {
+              if (!seenScreens.has(r.screenName)) {
+                const recs = [];
+                seenScreens.set(r.screenName, recs);
+                groups.push({ screenName: r.screenName, records: recs });
+              }
+              seenScreens.get(r.screenName).push(r);
+            }
+
+            const platTabs = [
+              { val: 'all', label: 'All', count: ga4Count + ampCount },
+              { val: 'ga4', label: 'GA4', count: ga4Count },
+              { val: 'amplitude', label: 'AMP', count: ampCount },
+            ];
+
             return (
             <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={cardStyle}>
@@ -2476,63 +2502,98 @@ function App() {
                     )}
                   </div>
 
-                  {/* Results list + events for selected screen */}
-                  <div style={{ width: 320, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {/* Results list — platform toggle + grouped by screen */}
+                  <div style={{ width: 320, flexShrink: 0 }}>
                     <div style={cardStyle}>
-                      <div style={cardLabel}>Events ({scoutResults.length})</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {scoutResults.map((s) => {
-                          const evName = s.events?.[0]?.event_name || s.screenName;
-                          const isActive = s.id === scoutSelected?.id;
+                      {/* Platform filter tabs */}
+                      <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+                        {platTabs.map(({ val, label, count }) => {
+                          const isActive = scoutPlatformFilter === val;
+                          const isDisabled = count === 0 && val !== 'all';
                           return (
                             <button
-                              key={s.id}
-                              onClick={() => { setScoutSelected(s); setScoutActiveEvent(s.events?.[0] || null); }}
-                              title={evName}
+                              key={val}
+                              onClick={() => !isDisabled && setScoutPlatformFilter(val)}
+                              title={isDisabled ? 'No events yet' : undefined}
                               style={{
-                                textAlign: 'left', padding: '8px 10px', borderRadius: 6,
+                                padding: '4px 10px', borderRadius: 6,
                                 border: `1px solid ${isActive ? T.purple700 : T.border}`,
-                                background: isActive ? T.purple50 : T.surface,
-                                cursor: 'pointer', overflow: 'hidden',
-                                fontFamily: 'var(--font-display)', minWidth: 0,
+                                background: isActive ? T.purple700 : T.surface,
+                                color: isActive ? '#fff' : isDisabled ? T.t300 : T.t600,
+                                fontSize: 11.5, fontWeight: 600,
+                                cursor: isDisabled ? 'default' : 'pointer',
+                                opacity: isDisabled ? 0.45 : 1,
+                                fontFamily: 'var(--font-display)',
                               }}
-                            >
-                              <div style={{ fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-mono)', color: isActive ? T.purple700 : T.t700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {highlightMatch(evName, scoutLastSearchQuery)}
+                            >{label} <span style={{ fontWeight: 400 }}>{count}</span></button>
+                          );
+                        })}
+                      </div>
+
+                      <div style={{ ...cardLabel, marginBottom: 8 }}>
+                        {filteredResults.length} event{filteredResults.length !== 1 ? 's' : ''} · {groups.length} screen{groups.length !== 1 ? 's' : ''}
+                      </div>
+
+                      {/* Grouped + scrollable list */}
+                      <div style={{ maxHeight: 'calc(100vh - 300px)', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                        {groups.map(({ screenName, records }) => {
+                          const catColor = CAT_COLOR[screenName] || { bg: '#F1F5F9', fg: '#475569', dot: '#64748B' };
+                          return (
+                            <div key={screenName} style={{ marginBottom: 6 }}>
+                              {/* Sticky section header */}
+                              <div style={{
+                                position: 'sticky', top: 0, zIndex: 1,
+                                background: T.surface, paddingBottom: 4, paddingTop: 2,
+                                display: 'flex', alignItems: 'center', gap: 6,
+                              }}>
+                                <span style={{
+                                  fontSize: 10, fontWeight: 700, padding: '2px 8px',
+                                  borderRadius: 10, background: catColor.bg, color: catColor.fg,
+                                  whiteSpace: 'nowrap',
+                                }}>{screenName}</span>
+                                <span style={{ fontSize: 10, color: T.t400, fontWeight: 500 }}>{records.length}</span>
                               </div>
-                              <div style={{ fontSize: 11, color: isActive ? T.purple500 : T.t400, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {highlightMatch(s.screenName, scoutLastSearchQuery)}
+                              {/* Event cards */}
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                {records.map((s) => {
+                                  const evName = s.events?.[0]?.event_name || s.screenName;
+                                  const isActive = s.id === scoutSelected?.id;
+                                  const isGA4 = s.platform === 'ga4';
+                                  return (
+                                    <button
+                                      key={s.id}
+                                      onClick={() => { setScoutSelected(s); setScoutActiveEvent(s.events?.[0] || null); }}
+                                      title={evName}
+                                      style={{
+                                        textAlign: 'left', padding: '7px 10px', borderRadius: 6,
+                                        border: `1px solid ${isActive ? T.purple700 : T.border}`,
+                                        background: isActive ? T.purple50 : T.surface,
+                                        cursor: 'pointer', overflow: 'hidden',
+                                        fontFamily: 'var(--font-display)', minWidth: 0,
+                                        display: 'flex', alignItems: 'center', gap: 6,
+                                      }}
+                                    >
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-mono)', color: isActive ? T.purple700 : T.t700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                          {highlightMatch(evName, scoutLastSearchQuery)}
+                                        </div>
+                                      </div>
+                                      <span style={{
+                                        fontSize: 9, fontWeight: 700, padding: '1px 5px',
+                                        borderRadius: 4, flexShrink: 0, textTransform: 'uppercase',
+                                        letterSpacing: '0.04em',
+                                        background: isGA4 ? '#EFF6FF' : '#F5F3FF',
+                                        color: isGA4 ? '#1D4ED8' : '#6D28D9',
+                                      }}>{isGA4 ? 'GA4' : 'AMP'}</span>
+                                    </button>
+                                  );
+                                })}
                               </div>
-                            </button>
+                            </div>
                           );
                         })}
                       </div>
                     </div>
-
-                    {scoutSelected && (
-                      <div style={cardStyle}>
-                        <div style={cardLabel}>Events on this screen</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          {(scoutSelected.events || []).map((ev, i) => (
-                            <button
-                              key={i}
-                              onClick={() => setScoutActiveEvent(ev)}
-                              title={ev.event_name}
-                              style={{
-                                textAlign: 'left', padding: '8px 10px', borderRadius: 6,
-                                border: `1px solid ${ev === scoutActiveEvent ? T.purple700 : T.border}`,
-                                background: ev === scoutActiveEvent ? T.purple50 : T.surface,
-                                cursor: 'pointer', fontFamily: "var(--font-mono)",
-                                fontSize: 11.5, color: ev === scoutActiveEvent ? T.purple700 : T.t700,
-                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {ev.event_name}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
