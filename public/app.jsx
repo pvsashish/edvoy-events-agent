@@ -634,10 +634,13 @@ function App() {
   const [scoutSearched, setScoutSearched]  = useState(false);
   const [scoutImgDims, setScoutImgDims]    = useState({ w: 1, h: 1 });
   const [scoutImgLoading, setScoutImgLoading] = useState(false);
+  const [scoutLastSearchQuery, setScoutLastSearchQuery] = useState('');
+  const [scoutDisplayedImage, setScoutDisplayedImage] = useState(null);
 
   const runScoutSearch = async (q) => {
     setScoutLoading(true);
     setScoutSearched(true);
+    setScoutLastSearchQuery(q);
     try {
       const res = await fetch(`/api/screens${q ? `?q=${encodeURIComponent(q)}` : ''}`);
       const data = await res.json();
@@ -707,6 +710,11 @@ function App() {
       .catch(console.error)
       .finally(() => setScoutImgLoading(false));
   }, [scoutSelected?.id]);
+
+  // Keep displayed image stable — shows previous image while new one loads (no flash)
+  useEffect(() => {
+    if (scoutSelected?.image) setScoutDisplayedImage(scoutSelected.image);
+  }, [scoutSelected?.image]);
 
   // Reset dims on screen change, then check if cached image already loaded
   useEffect(() => {
@@ -2356,7 +2364,18 @@ function App() {
           {/* ─────────────────────────────────────────
               Scout — Event Map (isolated, own state)
           ───────────────────────────────────────── */}
-          {activeTab === 'scout' && (
+          {activeTab === 'scout' && (() => {
+            const highlightMatch = (text, query) => {
+              if (!query || !text) return text;
+              const idx = text.toLowerCase().indexOf(query.toLowerCase());
+              if (idx === -1) return text;
+              return React.createElement(React.Fragment, null,
+                text.slice(0, idx),
+                React.createElement('mark', { style: { background: '#FEF08A', borderRadius: 2, padding: '0 1px', color: 'inherit' } }, text.slice(idx, idx + query.length)),
+                text.slice(idx + query.length)
+              );
+            };
+            return (
             <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div style={cardStyle}>
                 <div style={cardLabel}>Search</div>
@@ -2364,7 +2383,7 @@ function App() {
                   <input
                     type="text"
                     value={scoutQuery}
-                    onChange={(e) => setScoutQuery(e.target.value)}
+                    onChange={(e) => { setScoutQuery(e.target.value); setScoutLastSearchQuery(null); }}
                     onKeyDown={(e) => { if (e.key === 'Enter') runScoutSearch(scoutQuery); }}
                     placeholder="Search by event name (click_view_application) or screen name (Course Details)…"
                     style={{
@@ -2393,10 +2412,16 @@ function App() {
                 </div>
               )}
 
-              {!scoutLoading && scoutSearched && scoutResults.length === 0 && (
+              {!scoutLoading && scoutSearched && scoutResults.length === 0 && scoutLastSearchQuery !== null && (
                 <div style={{ ...cardStyle, textAlign: 'center', color: T.t500, fontSize: 13 }}>
-                  {scoutQuery
-                    ? `No matches for "${scoutQuery}".`
+                  {scoutLastSearchQuery
+                    ? <>
+                        No matches for <strong>"{scoutLastSearchQuery}"</strong>.{' '}
+                        <button
+                          onClick={() => { setScoutQuery(''); runScoutSearch(''); }}
+                          style={{ background: 'none', border: 'none', color: T.purple700, fontWeight: 600, cursor: 'pointer', fontSize: 13, padding: 0, textDecoration: 'underline' }}
+                        >Show all events</button>
+                      </>
                     : 'Repository is empty. It builds up as screens are crawled and saved.'}
                 </div>
               )}
@@ -2416,15 +2441,15 @@ function App() {
                           </span>
                         </div>
                         <div style={{ position: 'relative', display: 'inline-block', maxWidth: '100%' }}>
-                          {scoutImgLoading && !scoutSelected.image && (
+                          {!scoutDisplayedImage && scoutImgLoading && (
                             <div style={{ width: '100%', height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.t500, fontSize: 13 }}>
                               Loading screenshot…
                             </div>
                           )}
-                          {scoutSelected.image && <img
-                            src={scoutSelected.image}
+                          {scoutDisplayedImage && <img
+                            src={scoutDisplayedImage}
                             alt={scoutSelected.screenName}
-                            style={{ maxWidth: '100%', borderRadius: 8, border: `1px solid ${T.border}`, display: 'block' }}
+                            style={{ maxWidth: '100%', borderRadius: 8, border: `1px solid ${T.border}`, display: 'block', opacity: scoutImgLoading && !scoutSelected.image ? 0.4 : 1, transition: 'opacity 0.2s' }}
                             ref={scoutImgRef}
                             onLoad={(e) => {
                               setScoutImgDims({ w: e.target.naturalWidth || 1, h: e.target.naturalHeight || 1 });
@@ -2456,26 +2481,31 @@ function App() {
                     <div style={cardStyle}>
                       <div style={cardLabel}>Events ({scoutResults.length})</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {scoutResults.map((s) => (
-                          <button
-                            key={s.id}
-                            onClick={() => { setScoutSelected(s); setScoutActiveEvent(s.events?.[0] || null); }}
-                            style={{
-                              textAlign: 'left', padding: '8px 10px', borderRadius: 6,
-                              border: `1px solid ${s.id === scoutSelected?.id ? T.purple700 : T.border}`,
-                              background: s.id === scoutSelected?.id ? T.purple50 : T.surface,
-                              cursor: 'pointer',
-                              fontFamily: 'var(--font-display)',
-                            }}
-                          >
-                            <div style={{ fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-mono)', color: s.id === scoutSelected?.id ? T.purple700 : T.t700 }}>
-                              {s.events?.[0]?.event_name || s.screenName}
-                            </div>
-                            <div style={{ fontSize: 11, color: s.id === scoutSelected?.id ? T.purple500 : T.t400, marginTop: 2 }}>
-                              {s.screenName}
-                            </div>
-                          </button>
-                        ))}
+                        {scoutResults.map((s) => {
+                          const evName = s.events?.[0]?.event_name || s.screenName;
+                          const isActive = s.id === scoutSelected?.id;
+                          return (
+                            <button
+                              key={s.id}
+                              onClick={() => { setScoutSelected(s); setScoutActiveEvent(s.events?.[0] || null); }}
+                              title={evName}
+                              style={{
+                                textAlign: 'left', padding: '8px 10px', borderRadius: 6,
+                                border: `1px solid ${isActive ? T.purple700 : T.border}`,
+                                background: isActive ? T.purple50 : T.surface,
+                                cursor: 'pointer', overflow: 'hidden',
+                                fontFamily: 'var(--font-display)', minWidth: 0,
+                              }}
+                            >
+                              <div style={{ fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-mono)', color: isActive ? T.purple700 : T.t700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {highlightMatch(evName, scoutLastSearchQuery)}
+                              </div>
+                              <div style={{ fontSize: 11, color: isActive ? T.purple500 : T.t400, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {highlightMatch(s.screenName, scoutLastSearchQuery)}
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
 
@@ -2487,12 +2517,14 @@ function App() {
                             <button
                               key={i}
                               onClick={() => setScoutActiveEvent(ev)}
+                              title={ev.event_name}
                               style={{
                                 textAlign: 'left', padding: '8px 10px', borderRadius: 6,
                                 border: `1px solid ${ev === scoutActiveEvent ? T.purple700 : T.border}`,
                                 background: ev === scoutActiveEvent ? T.purple50 : T.surface,
                                 cursor: 'pointer', fontFamily: "var(--font-mono)",
                                 fontSize: 11.5, color: ev === scoutActiveEvent ? T.purple700 : T.t700,
+                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                               }}
                             >
                               {ev.event_name}
@@ -2511,7 +2543,8 @@ function App() {
                 </div>
               )}
             </div>
-          )}
+            );
+          })()}
 
         </div>
       </main>
