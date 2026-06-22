@@ -2385,16 +2385,6 @@ function App() {
               Scout — Event Map (isolated, own state)
           ───────────────────────────────────────── */}
           {activeTab === 'scout' && (() => {
-            const highlightMatch = (text, query) => {
-              if (!query || !text) return text;
-              const idx = text.toLowerCase().indexOf(query.toLowerCase());
-              if (idx === -1) return text;
-              return React.createElement(React.Fragment, null,
-                text.slice(0, idx),
-                React.createElement('mark', { style: { background: '#FEF08A', borderRadius: 2, padding: '0 1px', color: 'inherit' } }, text.slice(idx, idx + query.length)),
-                text.slice(idx + query.length)
-              );
-            };
 
             const ga4Count = scoutResults.filter(r => r.platform === 'ga4').length;
             const ampCount = scoutResults.filter(r => r.platform === 'amplitude').length;
@@ -2594,7 +2584,7 @@ function App() {
                                     >
                                       <div style={{ flex: 1, minWidth: 0 }}>
                                         <div style={{ fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-mono)', color: isActive ? T.purple700 : T.t700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                          {highlightMatch(evName, scoutLastSearchQuery)}
+                                          {evName}
                                         </div>
                                       </div>
                                       <span style={{
