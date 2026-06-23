@@ -637,7 +637,10 @@ function App() {
   const [scoutLastSearchQuery, setScoutLastSearchQuery] = useState('');
   const [scoutDisplayedImage, setScoutDisplayedImage] = useState(null);
   const [scoutPlatformFilter, setScoutPlatformFilter] = useState('all');
-  const [scoutAllResults, setScoutAllResults]         = useState([]); // full unfiltered list, set once on mount
+  const [scoutAllResults, setScoutAllResults]         = useState([]);
+  const [scoutPage, setScoutPage]                     = useState(1);
+  const [scoutToast, setScoutToast]                   = useState(null);
+  const [scoutHoveredId, setScoutHoveredId]           = useState(null);
 
   const runScoutSearch = (q) => {
     const norm = q.trim().toLowerCase();
@@ -711,6 +714,10 @@ function App() {
       runScoutSearch('');
     }
   }, [activeTab]);
+
+  // Reset to page 1 when filter or search results change
+  useEffect(() => { setScoutPage(1); }, [scoutPlatformFilter]);
+  useEffect(() => { setScoutPage(1); }, [scoutResults]);
 
   const scoutImgRef = useRef(null);
 
@@ -2461,140 +2468,210 @@ function App() {
                 </div>
               )}
 
-              {!scoutLoading && scoutResults.length > 0 && (
-                <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-                  {/* Screen image with highlight overlay */}
-                  <div style={{ ...cardStyle, flex: 1, padding: 16 }}>
-                    {scoutSelected && (
-                      <>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: T.t900 }}>
-                            {scoutSelected.screenName}
-                          </span>
-                          <span style={{ fontSize: 11, fontWeight: 600, color: T.t500, textTransform: 'uppercase' }}>
-                            {scoutSelected.platform}
-                          </span>
-                        </div>
-                        <div style={{ position: 'relative', display: 'inline-block', maxWidth: '100%' }}>
-                          {!scoutDisplayedImage && scoutImgLoading && (
-                            <div style={{ width: '100%', height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.t500, fontSize: 13 }}>
-                              Loading screenshot…
-                            </div>
-                          )}
-                          {scoutDisplayedImage && <img
-                            src={scoutDisplayedImage}
-                            alt={scoutSelected.screenName}
-                            style={{ maxWidth: '100%', borderRadius: 8, border: `1px solid ${T.border}`, display: 'block', opacity: scoutImgLoading && !scoutSelected.image ? 0.4 : 1, transition: 'opacity 0.2s' }}
-                            ref={scoutImgRef}
-                            onLoad={(e) => {
-                              setScoutImgDims({ w: e.target.naturalWidth || 1, h: e.target.naturalHeight || 1 });
+              {!scoutLoading && scoutResults.length > 0 && (() => {
+                // ── Inline SVG atoms ──────────────────────────────────
+                const GA4Logo = ({ size = 13 }) => (
+                  <svg width={size} height={size} viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+                    <rect x="3.5" y="15" width="4" height="6" rx="1.6" fill="#F9AB00"/>
+                    <rect x="10" y="10" width="4" height="11" rx="1.6" fill="#F9AB00"/>
+                    <rect x="16.5" y="5" width="4" height="16" rx="1.6" fill="#F9AB00"/>
+                  </svg>
+                );
+                const AMPLogo = ({ size = 13, opacity = 1 }) => (
+                  <svg width={size} height={size} viewBox="0 0 24 24" style={{ flexShrink: 0, opacity }}>
+                    <circle cx="12" cy="12" r="11" fill="#1F6CE2"/>
+                    <path d="M6 16 C 8 16 8.5 8 10 8 C 11.5 8 12 16 14 16 C 16 16 16.5 11 18 11" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                  </svg>
+                );
+                const CopyIcon = ({ size = 13 }) => (
+                  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <rect x="8" y="8" width="12" height="13" rx="2.5"/>
+                    <path d="M16 8 V5.5 A1.5 1.5 0 0 0 14.5 4 H5.5 A1.5 1.5 0 0 0 4 5.5 V14.5 A1.5 1.5 0 0 0 5.5 16 H8" strokeLinecap="round"/>
+                  </svg>
+                );
+                const PhoneIcon = () => (
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 19 H13"/>
+                  </svg>
+                );
+                const MonitorIcon = () => (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21 H16"/><path d="M12 17 V21"/>
+                  </svg>
+                );
+
+                // ── Pagination ────────────────────────────────────────
+                const PER_PAGE = 10;
+                const totalPages = Math.max(1, Math.ceil(filteredResults.length / PER_PAGE));
+                const safePage = Math.min(scoutPage, totalPages);
+                const pageEvents = filteredResults.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE);
+
+                // Group current page events by screenName (preserve order)
+                const pageGroupMap = new Map();
+                for (const r of pageEvents) {
+                  if (!pageGroupMap.has(r.screenName)) pageGroupMap.set(r.screenName, []);
+                  pageGroupMap.get(r.screenName).push(r);
+                }
+                const pageGroups = [...pageGroupMap.entries()].map(([screenName, records]) => ({ screenName, records }));
+
+                // Form factor from image dims
+                const formFactor = scoutImgDims.h > 0 && scoutImgDims.w > 0 && scoutImgDims.h > scoutImgDims.w ? 'mobile' : 'desktop';
+
+                // Copy to clipboard
+                const copyEvent = (evName) => {
+                  navigator.clipboard.writeText(evName).catch(() => {});
+                  setScoutToast(evName);
+                  setTimeout(() => setScoutToast(null), 2000);
+                };
+
+                // Pagination button pages to show: always first 3, ellipsis, last if >4 pages
+                const pageButtons = [];
+                if (totalPages <= 5) {
+                  for (let i = 1; i <= totalPages; i++) pageButtons.push(i);
+                } else {
+                  pageButtons.push(1, 2, 3, '…', totalPages);
+                }
+
+                // Group color for rail section headers (maps screenName → fg color)
+                const GROUP_FG = {
+                  'Header Menu': '#5B21B6', 'FAQs': '#9A3412', 'IELTS Page': '#1E40AF',
+                };
+
+                return (
+                <section style={{ background: '#fff', border: '1px solid #ECECF0', borderRadius: 18, boxShadow: '0 1px 0 rgba(15,15,20,.02), 0 16px 48px -24px rgba(15,15,20,.10)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+
+                  {/* ── Workspace header ─────────────────────────────── */}
+                  <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 18, padding: '14px 20px', background: 'linear-gradient(180deg,#FBFAFE 0%,#fff 100%)', borderBottom: '1px solid #ECECF0', flexWrap: 'wrap' }}>
+                    {/* Left: screen identity */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#9CA3AF' }}>Screen</span>
+                      <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-.015em', color: '#0F0F14', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 }}>{scoutSelected?.screenName || '—'}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: '#0F0F14', padding: '3px 8px', border: '1px solid #ECECF0', background: '#fff', borderRadius: 6, whiteSpace: 'nowrap' }}>
+                        <GA4Logo size={11} />GA4
+                      </span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: '#6B7280', padding: '3px 8px', border: '1px solid #ECECF0', background: '#fff', borderRadius: 6, whiteSpace: 'nowrap' }}>
+                        {formFactor === 'mobile' ? <PhoneIcon /> : <MonitorIcon />}
+                        {formFactor === 'mobile' ? 'Mobile' : 'Desktop'}
+                      </span>
+                    </div>
+                    {/* Right: segmented source filter */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: 3, background: '#F6F5F9', borderRadius: 10, flexShrink: 0 }}>
+                      {platTabs.map(({ val, label, count }) => {
+                        const isActive = scoutPlatformFilter === val;
+                        const isDisabled = count === 0 && val !== 'all';
+                        return (
+                          <button key={val}
+                            onClick={() => !isDisabled && setScoutPlatformFilter(val)}
+                            title={isDisabled ? 'No events yet' : undefined}
+                            style={{
+                              background: isActive ? '#7C3AED' : 'transparent',
+                              color: isActive ? '#fff' : isDisabled ? '#9CA3AF' : '#22232A',
+                              fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: isActive ? 700 : 600,
+                              padding: '6px 12px', borderRadius: 7, border: 'none',
+                              cursor: isDisabled ? 'default' : 'pointer',
+                              opacity: isDisabled ? 0.55 : 1,
+                              display: 'inline-flex', alignItems: 'center', gap: 6,
                             }}
-                          />}
-                          {scoutSelected.image && scoutActiveEvent && scoutActiveEvent.bbox && scoutActiveEvent.bbox[2] > 0 && scoutImgDims.w > 0 && (
-                            <div
-                              style={{
-                                position: 'absolute',
-                                left: `${(scoutActiveEvent.bbox[0] / scoutImgDims.w) * 100}%`,
-                                top: `${(scoutActiveEvent.bbox[1] / scoutImgDims.h) * 100}%`,
-                                width: `${(scoutActiveEvent.bbox[2] / scoutImgDims.w) * 100}%`,
-                                height: `${(scoutActiveEvent.bbox[3] / scoutImgDims.h) * 100}%`,
-                                border: '3px solid #FF3D00',
-                                borderRadius: 6,
-                                boxShadow: '0 0 0 2px #ffffff, 0 0 0 5px #FF3D00, 0 0 20px 4px rgba(255,61,0,0.65)',
-                                pointerEvents: 'none',
-                                transition: 'all 0.2s ease',
-                              }}
-                            />
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </div>
+                          >
+                            {val === 'ga4' && <GA4Logo size={13} />}
+                            {val === 'amplitude' && <AMPLogo size={13} opacity={isDisabled ? 0.55 : 1} />}
+                            {label}
+                            <span style={{ background: isActive ? 'rgba(255,255,255,.22)' : 'transparent', color: isActive ? '#fff' : '#6B7280', padding: '1px 6px', borderRadius: 4, fontSize: 10.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{count}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </header>
 
-                  {/* Results list — platform toggle + grouped by screen */}
-                  <div style={{ width: 320, flexShrink: 0 }}>
-                    <div style={cardStyle}>
-                      {/* Platform filter tabs */}
-                      <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
-                        {platTabs.map(({ val, label, count }) => {
-                          const isActive = scoutPlatformFilter === val;
-                          const isDisabled = count === 0 && val !== 'all';
-                          return (
-                            <button
-                              key={val}
-                              onClick={() => !isDisabled && setScoutPlatformFilter(val)}
-                              title={isDisabled ? 'No events yet' : undefined}
-                              style={{
-                                padding: '4px 10px', borderRadius: 6,
-                                border: `1px solid ${isActive ? T.purple700 : T.border}`,
-                                background: isActive ? T.purple700 : T.surface,
-                                color: isActive ? '#fff' : isDisabled ? T.t300 : T.t600,
-                                fontSize: 11.5, fontWeight: 600,
-                                cursor: isDisabled ? 'default' : 'pointer',
-                                opacity: isDisabled ? 0.45 : 1,
-                                fontFamily: 'var(--font-display)',
-                              }}
-                            >{label} <span style={{ fontWeight: 400 }}>{count}</span></button>
-                          );
-                        })}
+                  {/* ── Workspace body ───────────────────────────────── */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 380px', alignItems: 'stretch' }}>
+
+                    {/* LEFT: screen canvas */}
+                    <div style={{ background: 'radial-gradient(circle at 50% 0%, #F4EFFD 0%, #E9E2F5 100%)', padding: '32px 28px', display: 'flex', justifyContent: 'center', alignItems: 'center', borderRight: '1px solid #ECECF0', position: 'relative', height: 720, maxHeight: 720, overflow: 'hidden' }}>
+                      {/* Crosshair corners */}
+                      {[['top:14px','left:14px','M3 8 V3 H8'],['top:14px','right:14px','M21 8 V3 H16'],['bottom:14px','left:14px','M3 16 V21 H8'],['bottom:14px','right:14px','M21 16 V21 H16']].map(([v,h,d],i) => (
+                        <svg key={i} style={{ position:'absolute', ...Object.fromEntries([v,h].map(s => s.split(':'))), color:'#7C3AED', opacity:.25 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                          <path d={d}/>
+                        </svg>
+                      ))}
+                      {/* Screenshot — auto-fit */}
+                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', maxWidth: '100%', maxHeight: '100%' }}>
+                        {!scoutDisplayedImage && scoutImgLoading && (
+                          <div style={{ width: 200, height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B7280', fontSize: 13 }}>Loading screenshot…</div>
+                        )}
+                        {scoutDisplayedImage && (
+                          <img
+                            src={scoutDisplayedImage}
+                            alt={scoutSelected?.screenName}
+                            ref={scoutImgRef}
+                            style={{ maxWidth: '100%', maxHeight: '656px', width: 'auto', height: 'auto', objectFit: 'contain', display: 'block', borderRadius: 24, boxShadow: '0 28px 60px -10px rgba(50,30,90,.22), 0 2px 6px rgba(15,15,20,.06)', opacity: scoutImgLoading && !scoutSelected?.image ? 0.4 : 1, transition: 'opacity 0.2s' }}
+                            onLoad={(e) => setScoutImgDims({ w: e.target.naturalWidth || 1, h: e.target.naturalHeight || 1 })}
+                          />
+                        )}
+                        {/* Red highlight box */}
+                        {scoutSelected?.image && scoutActiveEvent?.bbox && scoutActiveEvent.bbox[2] > 0 && scoutImgDims.w > 0 && (
+                          <div style={{
+                            position: 'absolute',
+                            left: `${(scoutActiveEvent.bbox[0] / scoutImgDims.w) * 100}%`,
+                            top: `${(scoutActiveEvent.bbox[1] / scoutImgDims.h) * 100}%`,
+                            width: `${(scoutActiveEvent.bbox[2] / scoutImgDims.w) * 100}%`,
+                            height: `${(scoutActiveEvent.bbox[3] / scoutImgDims.h) * 100}%`,
+                            border: '2px solid #E53935', borderRadius: 14,
+                            pointerEvents: 'none', transition: 'all 0.2s ease',
+                          }}/>
+                        )}
                       </div>
+                    </div>
 
-                      <div style={{ ...cardLabel, marginBottom: 8 }}>
-                        {filteredResults.length} event{filteredResults.length !== 1 ? 's' : ''} · {groups.length} screen{groups.length !== 1 ? 's' : ''}
+                    {/* RIGHT: event rail */}
+                    <aside style={{ display: 'flex', flexDirection: 'column', background: '#fff', minHeight: 0, overflow: 'hidden' }}>
+                      {/* Rail subheader */}
+                      <div style={{ padding: '14px 18px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderBottom: '1px solid #E4E4EA', flexShrink: 0 }}>
+                        <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#6B7280' }}>Events on screen</span>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, color: '#6B7280', background: '#F6F5F9', padding: '2px 8px', borderRadius: 5, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{pageEvents.length} of {filteredResults.length}</span>
                       </div>
-
-                      {/* Grouped + scrollable list */}
-                      <div style={{ maxHeight: 'calc(100vh - 300px)', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-                        {groups.map(({ screenName, records }) => {
-                          const catColor = CAT_COLOR[screenName] || { bg: '#F1F5F9', fg: '#475569', dot: '#64748B' };
+                      {/* Scrollable grouped list */}
+                      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', height: 668 }}>
+                        {pageGroups.map(({ screenName, records }) => {
+                          const fgColor = GROUP_FG[screenName] || CAT_COLOR[screenName]?.fg || '#374151';
                           return (
-                            <div key={screenName} style={{ marginBottom: 6 }}>
-                              {/* Sticky section header */}
-                              <div style={{
-                                position: 'sticky', top: 0, zIndex: 1,
-                                background: T.surface, paddingBottom: 4, paddingTop: 2,
-                                display: 'flex', alignItems: 'center', gap: 6,
-                              }}>
-                                <span style={{
-                                  fontSize: 10, fontWeight: 700, padding: '2px 8px',
-                                  borderRadius: 10, background: catColor.bg, color: catColor.fg,
-                                  whiteSpace: 'nowrap',
-                                }}>{screenName}</span>
-                                <span style={{ fontSize: 10, color: T.t400, fontWeight: 500 }}>{records.length}</span>
+                            <div key={screenName}>
+                              {/* Group header */}
+                              <div style={{ padding: '14px 18px 6px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '.12em', textTransform: 'uppercase', color: fgColor, whiteSpace: 'nowrap' }}>{screenName}</span>
+                                <span style={{ flex: 1, height: 1, background: '#ECECF0' }}/>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6B7280', fontWeight: 600 }}>{records.length}</span>
                               </div>
-                              {/* Event cards */}
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                              {/* Event rows */}
+                              <div style={{ display: 'flex', flexDirection: 'column', paddingBottom: 6 }}>
                                 {records.map((s) => {
                                   const evName = s.events?.[0]?.event_name || s.screenName;
                                   const isActive = s.id === scoutSelected?.id;
+                                  const isHovered = s.id === scoutHoveredId;
                                   const isGA4 = s.platform === 'ga4';
                                   return (
-                                    <button
-                                      key={s.id}
+                                    <div key={s.id}
                                       onClick={() => { setScoutSelected(s); setScoutActiveEvent(s.events?.[0] || null); }}
-                                      title={evName}
+                                      onMouseEnter={() => setScoutHoveredId(s.id)}
+                                      onMouseLeave={() => setScoutHoveredId(null)}
                                       style={{
-                                        textAlign: 'left', padding: '7px 10px', borderRadius: 6,
-                                        border: `1px solid ${isActive ? T.purple700 : T.border}`,
-                                        background: isActive ? T.purple50 : T.surface,
-                                        cursor: 'pointer', overflow: 'hidden',
-                                        fontFamily: 'var(--font-display)', minWidth: 0,
-                                        display: 'flex', alignItems: 'center', gap: 6,
+                                        display: 'flex', alignItems: 'center', gap: 10,
+                                        padding: '9px 18px 9px 15px', cursor: 'pointer',
+                                        borderLeft: `3px solid ${isActive ? '#7C3AED' : 'transparent'}`,
+                                        background: isActive ? '#F5F0FF' : isHovered ? '#FAFAFC' : 'transparent',
+                                        transition: 'background .15s, border-color .15s',
                                       }}
                                     >
-                                      <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-mono)', color: isActive ? T.purple700 : T.t700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                          {evName}
-                                        </div>
-                                      </div>
-                                      <span style={{
-                                        fontSize: 9, fontWeight: 700, padding: '1px 5px',
-                                        borderRadius: 4, flexShrink: 0, textTransform: 'uppercase',
-                                        letterSpacing: '0.04em',
-                                        background: isGA4 ? '#EFF6FF' : '#F5F3FF',
-                                        color: isGA4 ? '#1D4ED8' : '#6D28D9',
-                                      }}>{isGA4 ? 'GA4' : 'AMP'}</span>
-                                    </button>
+                                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, color: isActive ? '#6D28D9' : '#22232A', fontWeight: isActive ? 700 : 400, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', letterSpacing: '-.02em' }} title={evName}>{evName}</span>
+                                      {isGA4 ? <GA4Logo size={14} /> : <AMPLogo size={14} />}
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); copyEvent(evName); }}
+                                        title="Copy event name"
+                                        style={{ opacity: isActive || isHovered ? 1 : 0, transition: 'opacity .15s, background .12s, color .12s', width: 24, height: 24, border: 'none', background: 'transparent', borderRadius: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#6B7280', cursor: 'pointer', flexShrink: 0 }}
+                                        onMouseEnter={e => { e.currentTarget.style.background='#F5F0FF'; e.currentTarget.style.color='#7C3AED'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='#6B7280'; }}
+                                      ><CopyIcon size={13} /></button>
+                                    </div>
                                   );
                                 })}
                               </div>
@@ -2602,10 +2679,53 @@ function App() {
                           );
                         })}
                       </div>
-                    </div>
+                    </aside>
                   </div>
-                </div>
-              )}
+
+                  {/* ── Workspace footer ─────────────────────────────── */}
+                  <footer style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 20px', borderTop: '1px solid #ECECF0', background: 'linear-gradient(0deg,#FBFAFE 0%,#fff 100%)', flexWrap: 'wrap' }}>
+                    {/* Stats */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 12, color: '#6B7280' }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', display: 'inline-flex', alignItems: 'center', gap: 6, fontVariantNumeric: 'tabular-nums' }}>
+                        <GA4Logo size={14} /><span style={{ color: '#0F0F14', fontWeight: 700 }}>{filteredResults.length}</span> events
+                      </span>
+                      <span style={{ width: 1, height: 14, background: '#ECECF0' }}/>
+                      <span style={{ fontFamily: 'var(--font-mono)', display: 'inline-flex', alignItems: 'center', gap: 6, fontVariantNumeric: 'tabular-nums' }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21 H16"/><path d="M12 18 V21"/></svg>
+                        <span style={{ color: '#0F0F14', fontWeight: 700 }}>{groups.length}</span> screens
+                      </span>
+                    </div>
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <button onClick={() => setScoutPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: 600, color: safePage === 1 ? '#9CA3AF' : '#6B7280', background: 'transparent', border: 'none', cursor: safePage === 1 ? 'default' : 'pointer', padding: '6px 10px', borderRadius: 7 }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6 L9 12 L15 18"/></svg>Prev
+                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '0 6px' }}>
+                          {pageButtons.map((p, i) => p === '…'
+                            ? <span key={i} style={{ color: '#9CA3AF', fontSize: 12, padding: '0 2px' }}>…</span>
+                            : <button key={p} onClick={() => setScoutPage(p)}
+                                style={{ width: 28, height: 28, borderRadius: 7, border: p === safePage ? 'none' : '1px solid #ECECF0', background: p === safePage ? '#7C3AED' : '#fff', color: p === safePage ? '#fff' : '#22232A', fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: p === safePage ? 700 : 600, cursor: 'pointer', fontVariantNumeric: 'tabular-nums' }}>{p}</button>
+                          )}
+                        </div>
+                        <button onClick={() => setScoutPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: 600, color: safePage === totalPages ? '#9CA3AF' : '#6D28D9', background: 'transparent', border: 'none', cursor: safePage === totalPages ? 'default' : 'pointer', padding: '6px 10px', borderRadius: 7 }}>
+                          Next<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6 L15 12 L9 18"/></svg>
+                        </button>
+                      </div>
+                    )}
+                  </footer>
+
+                  {/* ── Copy toast ───────────────────────────────────── */}
+                  {scoutToast && (
+                    <div style={{ position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)', background: '#0F0F14', color: '#fff', fontSize: 12.5, fontWeight: 600, padding: '10px 18px', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.18)', zIndex: 9999, pointerEvents: 'none', fontFamily: 'var(--font-mono)', letterSpacing: '-.02em', whiteSpace: 'nowrap' }}>
+                      Copied "{scoutToast}"
+                    </div>
+                  )}
+                </section>
+                );
+              })()}
 
               {!scoutSearched && !scoutLoading && (
                 <div style={{ ...cardStyle, textAlign: 'center', color: T.t500, fontSize: 13, padding: '40px 20px' }}>

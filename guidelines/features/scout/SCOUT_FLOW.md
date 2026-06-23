@@ -1,6 +1,6 @@
 # Scout — Event Map
 
-**Last updated:** 2026-06-21
+**Last updated:** 2026-06-23
 
 ## What It Does
 Visual analytics dictionary. Search an event name or screen category → see the real screenshot with the highlighted UI element. Useful for onboarding, QA, and confirming which element fires which event.
@@ -31,7 +31,7 @@ edvoy_screens (
 
 **bbox:** `[x, y, width, height]` in raw pixels of the screenshot. Always `[0,0,0,0]` for manually captured screenshots (highlight is drawn into the image itself). Scout skips rendering the overlay when `bbox[2] === 0`.
 
-## Current Categories (104 records across 24 screens)
+## Current Categories (105 records across 24 screens)
 | screenName | Records |
 |---|---|
 | App | 2 |
@@ -41,7 +41,7 @@ edvoy_screens (
 | Compare | 1 |
 | Compare page | 1 |
 | Contact | 7 |
-| Country Page | 6 |
+| Country Page | 7 |
 | Course Shortlist | 1 |
 | Courses | 3 |
 | Events | 6 |
@@ -59,6 +59,8 @@ edvoy_screens (
 | Testimonials | 2 |
 | Universities | 3 |
 
+> **Note:** Country Page has 7 records (1 duplicate of `explore_universities_clicked` from a retry during ingestion). Intentionally kept — can be cleaned up later.
+
 ## API
 | Method | Path | Description |
 |--------|------|-------------|
@@ -69,14 +71,25 @@ edvoy_screens (
 | DELETE | `/api/screens` | `{ id }` for one, `{ clearAll: true }` for all |
 
 ## Frontend (app.jsx)
-State: `scoutQuery`, `scoutResults`, `scoutSelected`, `scoutActiveEvent`, `scoutImgDims`, `scoutImgLoading`, `scoutSearched`, `scoutLoading`
+State: `scoutQuery`, `scoutResults`, `scoutAllResults`, `scoutSelected`, `scoutActiveEvent`, `scoutImgDims`, `scoutImgLoading`, `scoutSearched`, `scoutLoading`, `scoutLastSearchQuery`, `scoutDisplayedImage`, `scoutPlatformFilter`, `scoutPage`, `scoutToast`, `scoutHoveredId`
 
 Key behaviours:
-- Auto-loads all records on Scout tab open (`runScoutSearch('')`)
-- **Image preloading**: on app mount, after list loads, all images are fetched in background (batches of 4) and stored in `scoutResults` state — clicking any event is instant
-- On-demand fetch (`GET /api/screens?id=`) remains as fallback if preload hasn't reached that image yet
-- Event list shows `event_name` (mono font) + `screenName` below it for disambiguation
-- Clicking an event → if `bbox[2] > 0`, renders red-orange highlight box (`#FF3D00`) positioned via `%` of natural image dimensions
+- **In-memory search**: full list loaded once on mount into `scoutAllResults`; `runScoutSearch(q)` filters in-memory (instant, no DB round-trip). DB query only as fallback if mount preload hasn't landed yet.
+- **Image preloading**: on mount, all images fetched in background (batches of 4) into `scoutAllResults` + `scoutResults` — selecting any event is instant
+- **Platform toggle**: All / GA4 / AMP segmented tabs in workspace header; AMP disabled until Amplitude events exist
+- **Screen grouping**: events grouped by screenName with coloured section headers, 10 per page
+- **Pagination**: client-side, 10 events/page, shown in workspace footer
+- **Copy button**: per event row, copies event name to clipboard, shows dark toast confirmation
+- **Auto-fit canvas**: screenshot centered in 720px fixed-height canvas, `max-width/max-height: 100%; object-fit: contain` — any size screenshot fits without layout break
+- **Red highlight box**: `#E53935`, `border-radius: 14px`, positioned via bbox % of natural image dims (only when `bbox[2] > 0`)
+- **Form-factor chip**: Mobile if `imgH > imgW`, Desktop otherwise
+
+## Workspace redesign (2026-06-23)
+Replaced the old two-card layout (preview card + list card) with a single unified workspace card:
+- **Header strip**: screen name + GA4 chip + form-factor chip (left) · All/GA4/AMP segmented filter (right)
+- **Body**: radial purple gradient canvas (left, 720px) + event rail (right, 380px) in CSS grid
+- **Footer**: GA4 event count + screen count stats (left) · Prev/page numbers/Next pagination (right)
+- Design tokens from handoff: `--purple: #7C3AED`, `--red: #E53935`, card shadow `0 16px 48px -24px rgba(15,15,20,.10)`
 
 ## Screen Name Rules
 `screenName` MUST exactly match a key in `CAT_COLOR` (line ~86 of `app.jsx`). Using an invalid name still saves to DB but renders without a category colour badge.
@@ -110,3 +123,10 @@ for fname in sorted(f for f in os.listdir(folder) if f.endswith('.png')):
 ```
 
 Note: Neon DB has occasional SSL connection flakiness — `api/screens.js` has `queryWithRetry` (2 retries, 3s delay) to handle this server-side. If a POST returns 500, wait 8s and retry manually.
+
+## ⚠️ Known issue: Neon free-tier data transfer quota
+Storing full-resolution screenshots as base64 TEXT in PostgreSQL burns through Neon's 5GB/month free transfer limit quickly (105 screenshots × preload on every mount). Quota exceeded as of 2026-06-23; resets 2026-07-01.
+
+**Planned fix (do on July 1):** Move images to Vercel Blob or Cloudflare R2 (free object storage). Neon stores only the image URL (a few bytes). This eliminates the transfer problem permanently.
+- Neon stays for metadata: `id`, `screen_name`, `platform`, `events`, `image_url`
+- Images served from CDN URL, never through Neon
