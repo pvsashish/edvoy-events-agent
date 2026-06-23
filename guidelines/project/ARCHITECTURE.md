@@ -1,6 +1,6 @@
 # Architecture — Edvoy Events Agent
 
-**Last updated:** 2026-06-21 (Scout bulk ingestion complete — 84 events, 21 categories)
+**Last updated:** 2026-06-23 (Scout workspace redesigned, 105 events across 24 screens)
 
 ## What It Does
 PM tool for Edvoy's analytics team. Upload screenshots or videos of the Edvoy web portal or mobile app, select GA4 or Amplitude, and receive correctly formatted analytics events + parameters matching the tracking sheet format (Category, Suggested Event Name, Parameter, Sample Value). Specs are persisted to Neon PostgreSQL with localStorage fallback. Also includes Scout — a visual event map that shows real screenshots with highlighted UI elements for each tracked event.
@@ -80,7 +80,7 @@ Table: `edvoy_specs_history`
 
 ## Key Design Decisions
 - **No bundler**: React + ReactDOM UMD globals; JSX transpiled by Babel standalone at runtime.
-- **Base64 images**: Screenshots converted client-side to data URLs, sent in POST body — no file storage.
+- **Base64 images**: Screenshots converted client-side to data URLs, stored in Neon as TEXT. ⚠️ This causes Neon free-tier data transfer overruns — planned migration to Vercel Blob (store URL in Neon instead). See SCOUT_FLOW.md.
 - **Video frame extraction**: Canvas API extracts 3 JPEG frames client-side; Groq receives images only.
 - **`outputDirectory: public`**: Vercel serves `public/` as static root — `index.html` resolves at `/`.
 - **Groq model**: `meta-llama/llama-4-scout-17b-16e-instruct` — both llama-3.2 vision variants decommissioned June 2026.
