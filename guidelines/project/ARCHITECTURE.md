@@ -97,5 +97,8 @@ Table: `edvoy_specs_history`
 - Primary purple: `#7C3AED`
 - Page bg: `#F8FAFC` (light mode — Edvoy does not use dark mode)
 - Cards: `#FFFFFF` with `#EAECF0` border
-- Font: Inter only — 400 (inputs/mono), 500 (secondary text), 600 (buttons/labels), 700 (primary CTA), 800 (headings). No Manrope.
-- Icons: GA4 and Amplitude use official brand SVGs (inline, no external requests)
+- Fonts: two-font system loaded from Google Fonts
+  - `--font-display: Manrope` → headings (h1/h2/h3), section labels (uppercase), card titles, table column headers, step numbers/titles, wordmark. Weights: 500/600/700/800.
+  - `--font-body: Inter` → all buttons, nav items, inputs, textareas, body/description text, table cell content, supporting text. Weights: 400/500/600/700.
+  - `--font-mono` → code snippets only
+- Icons: GA4 and Amplitude use official brand SVGs inline (`IconGA4`, `IconAmplitude` components). No external icon font.

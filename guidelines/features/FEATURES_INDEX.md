@@ -1,6 +1,6 @@
 # Features Index
 
-**Last updated:** 2026-06-25
+**Last updated:** 2026-06-25 (TrackingSheets card, Manrope/Inter font system)
 
 | Feature | Doc | Status | Key Files |
 |---------|-----|--------|-----------|
@@ -24,4 +24,6 @@
 | File Type Validation | [UPLOAD_FLOW.md](upload/UPLOAD_FLOW.md) | complete | `public/app.jsx` (addFiles — MIME + extension fallback) |
 | Mobile Responsive Layout | — | complete | `public/index.html` (hamburger nav, single-col grid ≤768px) |
 | Sample Value Normalisation | [GEMINI_ANALYSIS_FLOW.md](gemini_analysis/GEMINI_ANALYSIS_FLOW.md) | complete | `api/analyze.js` (is_clicked → true/false, *_id → dynamic value) |
+| TrackingSheets Cards | — | complete | `public/app.jsx` (`TrackingSheetCard` component) — compact single-row card with provider logo, connected dot, icon-only Edit + Re-sync buttons, hover lift. Wired to existing `syncSheet` / `sheetConfig` state. |
+| Manrope / Inter font system | — | complete | `public/index.html` — Manrope for headings/labels/display, Inter for buttons/nav/body. `--font-display: Manrope`, `--font-body: Inter`. |
 | Scout — Event Map | [SCOUT_FLOW.md](scout/SCOUT_FLOW.md) | complete | `api/screens.js`, `api/db.js`, `public/app.jsx` — 105 events, 24 screens. Redesigned workspace (unified card, in-memory search, pagination, copy button, auto-fit canvas). ⚠️ Neon quota blocked until 2026-07-01. |
