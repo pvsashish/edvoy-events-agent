@@ -18,7 +18,7 @@ PM tool for Edvoy's analytics team. Lets PMs upload screenshots/videos of the Ed
 | Frontend | React 18 UMD + Babel standalone — **no build step**, edit `public/app.jsx` directly |
 | Backend | Vercel serverless (`api/*.js`) |
 | Database | Neon PostgreSQL (`DATABASE_URL` env var) |
-| AI | Gemini 2.5 Flash (`GEMINI_API_KEY`) — 3-step pipeline: identify → match → generate |
+| AI | Gemini 2.5 Flash (`GEMINI_API_KEY`) primary → Groq Llama-4-Scout (`GROQ_API_KEY`) auto-fallback on 429 — 3-step pipeline: identify → match → generate |
 | Hosting | Vercel — `public/` is static root, `api/` is serverless |
 
 Key files:
@@ -32,7 +32,7 @@ Key files:
 
 ---
 
-## Current State (as of 2026-06-25)
+## Current State (as of 2026-06-25, last commit b1feed4)
 
 ### ⚠️ BLOCKER: Neon data transfer quota exceeded
 - All 105 Scout records are intact in Neon DB — nothing lost
@@ -49,6 +49,9 @@ Migrate images from Neon to **Vercel Blob** (or Cloudflare R2):
 5. Update `public/app.jsx`: `<img src={record.image_url}>` instead of base64
 
 This eliminates the transfer problem permanently. Neon only stores metadata (~1KB/record), images served from CDN.
+
+### AI fallback
+Gemini 2.5 Flash free tier = 20 RPD. When quota hit → auto-falls back to Groq Llama-4-Scout (1,000 RPD free). Both keys already in Vercel env. No user-facing error — transparent switch.
 
 ### What's built and working
 - **Scout workspace redesign** — pushed to GitHub, will show correctly once DB accessible

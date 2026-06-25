@@ -4,12 +4,12 @@
 **Status:** active
 
 ## What It Does
-3-step pipeline that receives base64 image(s) + platform + optional context from the frontend, runs them through Gemini 2.5 Flash, and returns a normalised JSON array of analytics events matching the tracking sheet format.
+3-step pipeline that receives base64 image(s) + platform + optional context from the frontend, runs them through Gemini 2.5 Flash (primary) or Groq Llama-4-Scout (auto-fallback on quota), and returns a normalised JSON array of analytics events matching the tracking sheet format.
 
 ## Entry Points
 - File: `api/analyze.js`
 - Route: `POST /api/analyze`
-- Required env vars: `GEMINI_API_KEY`
+- Required env vars: `GEMINI_API_KEY`, `GROQ_API_KEY`
 
 ## The 3-Step Pipeline
 
@@ -56,6 +56,7 @@ When the user generates GA4 first and then switches to Amplitude (or vice versa)
 - Empty images / bad platform → 400 with descriptive message
 - JSON parse fully fails → 500 `"Failed to parse event specifications..."`
 - Gemini 503 → auto-retried up to 2× with exponential backoff (3s → 6s), then 500
+- Gemini 429 / RESOURCE_EXHAUSTED → auto-falls back to Groq for that step (Steps 1+2 fail silently to `[]/{}` on Groq error; Step 3 throws 500)
 
 ## Post-Processing (server-side)
 Applied to every row before returning:
@@ -66,16 +67,18 @@ Applied to every row before returning:
 - Parameter names lowercased and trimmed
 
 ## Architecture Decisions
-- **Gemini 2.5 Flash**: free tier, fast, strong instruction following. `gemini-2.5-pro` has 0 free quota on the free tier.
-- **`systemInstruction` not user turn**: Gemini takes system prompts via the `systemInstruction` param, not as a message in the content array.
-- **`inlineData` not `image_url`**: Gemini image format strips the `data:image/...;base64,` prefix and uses `{ inlineData: { mimeType, data } }`.
+- **Gemini 2.5 Flash**: primary, free tier 20 RPD, strong instruction following. `gemini-2.5-pro` has 0 free quota.
+- **Groq fallback**: `meta-llama/llama-4-scout-17b-16e-instruct`, 1,000 RPD free. Plain `fetch` to `api.groq.com/openai/v1/chat/completions`. Images sent as `image_url` data URLs (OpenAI format). No SDK needed.
+- **`systemInstruction` not user turn**: Gemini-specific. Groq uses standard `system` role message.
+- **`inlineData` not `image_url`**: Gemini image format. Groq uses `{ type: "image_url", image_url: { url: "data:..." } }`.
 - **Regex JSON fallback**: Model occasionally wraps JSON in markdown fences — regex extracts `[…]` or `{…}`.
-- **Steps 1 & 2 fail silently**: If Identify or Match fail, Step 3 still runs and produces a reasonable (if less consistent) spec.
+- **Steps 1 & 2 fail silently**: If Identify or Match fail (on either provider), Step 3 still runs and produces a reasonable (if less consistent) spec.
 
 ## Change Log
 | Date | Change |
 |------|--------|
-| 2026-06-25 | Migrated from Groq (Llama 4 Scout) to Gemini 2.5 Flash; added 3-step pipeline (identify → match → generate); added cross-platform session events; added 503 auto-retry with exponential backoff |
+| 2026-06-25 | Added Groq Llama-4-Scout as auto-fallback when Gemini returns 429; llama-3.2-90b-vision-preview decommissioned by Groq → updated to llama-4-scout-17b-16e-instruct |
+| 2026-06-25 | Migrated from Groq to Gemini 2.5 Flash as primary; added 3-step pipeline; cross-platform session events; 503 auto-retry |
 | 2026-06-08 | Removed old_event_name from output; added is_clicked/id normalisation |
 | 2026-06-07 | Switched Groq model from llama-3.2-11b-vision-preview to llama-4-scout-17b |
 | 2026-06-07 | Initial implementation |

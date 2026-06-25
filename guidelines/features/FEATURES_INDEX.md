@@ -1,6 +1,6 @@
 # Features Index
 
-**Last updated:** 2026-06-25 (TrackingSheets card, Manrope/Inter font system)
+**Last updated:** 2026-06-25 (Groq auto-fallback on Gemini 429)
 
 | Feature | Doc | Status | Key Files |
 |---------|-----|--------|-----------|
@@ -8,7 +8,7 @@
 | Video Upload + Frame Extraction | [UPLOAD_FLOW.md](upload/UPLOAD_FLOW.md) | complete | `public/app.jsx` (extractVideoFrames) |
 | GA4 / Amplitude Toggle | — | complete | `public/app.jsx`, `prompts/ga4.js`, `prompts/amplitude.js` |
 | Feature Context Input | — | complete | `public/app.jsx` |
-| Gemini Analysis (3-step pipeline) | [GEMINI_ANALYSIS_FLOW.md](gemini_analysis/GEMINI_ANALYSIS_FLOW.md) | complete | `api/analyze.js`, `prompts/ga4.js`, `prompts/amplitude.js`, `prompts/identify.js`, `prompts/match.js` |
+| Gemini Analysis (3-step pipeline) | [GEMINI_ANALYSIS_FLOW.md](gemini_analysis/GEMINI_ANALYSIS_FLOW.md) | complete | `api/analyze.js`, `prompts/ga4.js`, `prompts/amplitude.js`, `prompts/identify.js`, `prompts/match.js` — Gemini 2.5 Flash primary; Groq Llama-4-Scout auto-fallback on 429 |
 | Cross-Platform Consistency | [GEMINI_ANALYSIS_FLOW.md](gemini_analysis/GEMINI_ANALYSIS_FLOW.md) | complete | `api/analyze.js` (sessionEvents), `public/app.jsx` (eventsPlatform state) |
 | Events Table Output | — | complete | `public/app.jsx` |
 | Inline Table Editing | — | complete | `public/app.jsx` (handleCellChange) |
