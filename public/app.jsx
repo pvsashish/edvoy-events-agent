@@ -339,6 +339,58 @@ function IconAmplitude({ size = 16, className = "", style = {} }) {
   );
 }
 
+function TrackingSheetCard({ label, logo, logoBg, connected, syncing, onEdit, onResync }) {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        border: `1px solid ${hover ? T.purple200 : T.border}`,
+        boxShadow: hover ? '0 4px 14px -6px rgba(124,58,237,.18)' : 'none',
+        borderRadius: 10, padding: '8px 10px', background: T.surface,
+        transition: 'border-color .15s, box-shadow .15s',
+        display: 'flex', alignItems: 'center', gap: 8,
+      }}
+    >
+      <span style={{
+        width: 26, height: 26, borderRadius: 7, background: logoBg,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+      }}>
+        {logo}
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 11.5, fontWeight: 700, color: T.t700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
+          <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0, background: connected ? '#16A34A' : T.t400 }} />
+          <span style={{ fontSize: 10, fontWeight: 600, color: T.t500 }}>{connected ? 'Connected' : 'Disconnected'}</span>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+        <button onClick={onEdit} title="Edit" style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          border: 'none', borderRadius: 6, padding: '5px', cursor: 'pointer',
+          color: T.t500, background: T.bg, width: 26, height: 26,
+        }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M4 20 L4 16 L15 5 L19 9 L8 20 Z" /><path d="M13 7 L17 11" />
+          </svg>
+        </button>
+        <button onClick={onResync} disabled={syncing} title="Re-sync" style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          border: 'none', borderRadius: 6, padding: '5px', cursor: syncing ? 'default' : 'pointer',
+          color: T.purple700, background: T.purple50, opacity: syncing ? 0.6 : 1, width: 26, height: 26,
+        }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M21 8 A9 9 0 0 0 5 5 L3 7" /><path d="M3 3 V7 H7" />
+            <path d="M3 16 A9 9 0 0 0 19 19 L21 17" /><path d="M21 21 V17 H17" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function formatTimestamp(ts) {
   if (!ts) return '';
   // ISO string → consistent display format
@@ -1299,7 +1351,7 @@ function App() {
             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 800, color: T.t900, lineHeight: 1.2, letterSpacing: '-0.02em' }}>
               Edvoy Events
             </h1>
-            <span style={{ fontSize: 10, fontWeight: 600, color: T.t500, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: T.t500, letterSpacing: '0.05em', textTransform: 'uppercase', fontFamily: 'var(--font-display)' }}>
               Tracking Governance
             </span>
           </div>
@@ -1317,7 +1369,6 @@ function App() {
               color: activeTab === 'generator' ? T.purple700 : T.t700,
               fontSize: 13, fontWeight: activeTab === 'generator' ? 600 : 500,
               cursor: 'pointer', textAlign: 'left',
-              fontFamily: 'var(--font-display)',
             }}
           >
             <IconZap color={activeTab === 'generator' ? T.purple700 : T.t500} />
@@ -1333,7 +1384,6 @@ function App() {
               color: activeTab === 'history' ? T.purple700 : T.t700,
               fontSize: 13, fontWeight: activeTab === 'history' ? 600 : 500,
               cursor: 'pointer', textAlign: 'left',
-              fontFamily: 'var(--font-display)',
             }}
           >
             <IconLayers color={activeTab === 'history' ? T.purple700 : T.t500} />
@@ -1349,7 +1399,6 @@ function App() {
               color: activeTab === 'guidelines' ? T.purple700 : T.t700,
               fontSize: 13, fontWeight: activeTab === 'guidelines' ? 600 : 500,
               cursor: 'pointer', textAlign: 'left',
-              fontFamily: 'var(--font-display)',
             }}
           >
             <IconListChecks color={activeTab === 'guidelines' ? T.purple700 : T.t500} />
@@ -1365,7 +1414,6 @@ function App() {
               color: activeTab === 'scout' ? T.purple700 : T.t700,
               fontSize: 13, fontWeight: activeTab === 'scout' ? 600 : 500,
               cursor: 'pointer', textAlign: 'left',
-              fontFamily: 'var(--font-display)',
             }}
           >
             <IconScout color={activeTab === 'scout' ? T.purple700 : T.t500} />
@@ -1375,34 +1423,34 @@ function App() {
 
         {/* Tracking Sheet Sync — per platform */}
         <div style={{ padding: '0 12px 16px' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: T.t400, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8, paddingLeft: 2 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: T.t400, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10, paddingLeft: 2, fontFamily: 'var(--font-display)' }}>
             Tracking Sheets
           </div>
-          {[{ key: 'ga4', label: 'GA4' }, { key: 'amplitude', label: 'Amplitude' }].map(({ key, label }) => {
+          {[
+            {
+              key: 'ga4', label: 'Google Analytics 4',
+              logoBg: '#FFF4E0',
+              logo: <IconGA4 size={16} />,
+            },
+            {
+              key: 'amplitude', label: 'Amplitude',
+              logoBg: '#E7F0FE',
+              logo: <IconAmplitude size={16} />,
+            },
+          ].map(({ key, label, logo, logoBg }) => {
             const cfg     = sheetConfig[key];
             const syncing = sheetSyncingFor === key;
             const open    = sheetInputFor === key;
             const draft   = sheetUrlDrafts[key] || '';
             return (
-              <div key={key} style={{ marginBottom: 8 }}>
+              <div key={key} style={{ marginBottom: 10 }}>
                 {cfg?.data ? (
-                  <div style={{ background: T.purple50, borderRadius: 8, padding: '8px 10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: T.purple700 }}>✓ {label}</span>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={() => { setSheetInputFor(open ? null : key); setSheetUrlDrafts(p => ({ ...p, [key]: cfg.url || '' })); }}
-                          style={{ fontSize: 10, color: open ? T.purple700 : T.t500, fontWeight: open ? 600 : 400, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                          {open ? 'Done' : 'Edit'}</button>
-                        <button onClick={() => syncSheet(key)} disabled={syncing}
-                          style={{ fontSize: 10, fontWeight: 600, color: T.purple700, background: 'none', border: 'none', cursor: syncing ? 'default' : 'pointer', padding: 0 }}>
-                          {syncing ? 'Syncing…' : 'Re-sync'}</button>
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 10, color: T.t500, marginTop: 2 }}>
-                      {cfg.data.rowCount} rows · {cfg.data.parameters?.length} params
-                      {cfg.data.gid && cfg.data.gid !== '0' && <span style={{ color: T.purple600 }}> · tab #{cfg.data.gid}</span>}
-                    </div>
-                  </div>
+                  <TrackingSheetCard
+                    label={label} logo={logo} logoBg={logoBg}
+                    connected={true} syncing={syncing}
+                    onEdit={() => { setSheetInputFor(open ? null : key); setSheetUrlDrafts(p => ({ ...p, [key]: cfg.url || '' })); }}
+                    onResync={() => syncSheet(key)}
+                  />
                 ) : !open ? (
                   <button
                     onClick={() => setSheetInputFor(key)}
@@ -1412,9 +1460,8 @@ function App() {
                       background: 'none', color: T.t500,
                       fontSize: 11, fontWeight: 500, cursor: 'pointer',
                       textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6,
-                      fontFamily: 'var(--font-display)',
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = T.purple300; e.currentTarget.style.color = T.purple700; }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = T.purple200; e.currentTarget.style.color = T.purple700; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.t500; }}
                   >
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
@@ -1433,7 +1480,7 @@ function App() {
                       style={{
                         width: '100%', padding: '7px 10px',
                         border: `1px solid ${T.border}`, borderRadius: 6,
-                        fontSize: 11, fontFamily: 'var(--font-display)',
+                        fontSize: 11,
                         color: T.t700, background: T.surface,
                         boxSizing: 'border-box', outline: 'none',
                       }}
@@ -1449,12 +1496,11 @@ function App() {
                           border: 'none', borderRadius: 6,
                           fontSize: 11, fontWeight: 600,
                           cursor: (!draft.trim() || syncing) ? 'not-allowed' : 'pointer',
-                          fontFamily: 'var(--font-display)',
                         }}
                       >{syncing ? 'Connecting…' : 'Connect & Sync'}</button>
                       <button
                         onClick={() => { setSheetInputFor(null); setSheetUrlDrafts(p => ({ ...p, [key]: '' })); }}
-                        style={{ padding: '6px 10px', background: 'none', border: `1px solid ${T.border}`, borderRadius: 6, fontSize: 11, color: T.t500, cursor: 'pointer', fontFamily: 'var(--font-display)' }}
+                        style={{ padding: '6px 10px', background: 'none', border: `1px solid ${T.border}`, borderRadius: 6, fontSize: 11, color: T.t500, cursor: 'pointer' }}
                       >Cancel</button>
                     </div>
                     <p style={{ fontSize: 10, color: T.t400, marginTop: 5, lineHeight: 1.5 }}>
@@ -1649,7 +1695,6 @@ function App() {
                         transition: 'all 0.25s',
                         zIndex: 2,
                         position: 'relative',
-                        fontFamily: 'var(--font-display)',
                       }}
                     >
                       <IconGA4
@@ -1670,7 +1715,6 @@ function App() {
                         transition: 'all 0.25s',
                         zIndex: 2,
                         position: 'relative',
-                        fontFamily: 'var(--font-display)',
                       }}
                     >
                       <IconAmplitude 
@@ -2276,7 +2320,6 @@ function App() {
                             background: T.surface, color: currentPage === 1 ? T.t400 : T.t700,
                             fontSize: 12, fontWeight: 600, cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
                             transition: 'all 0.15s',
-                            fontFamily: 'var(--font-display)',
                           }}
                           onMouseEnter={e => { if (currentPage !== 1) e.currentTarget.style.borderColor = T.borderHover; }}
                           onMouseLeave={e => { if (currentPage !== 1) e.currentTarget.style.borderColor = T.border; }}
@@ -2287,7 +2330,7 @@ function App() {
                           Previous
                         </button>
                         
-                        <span style={{ fontSize: 12.5, fontWeight: 500, color: T.t500, fontFamily: 'var(--font-display)' }}>
+                        <span style={{ fontSize: 12.5, fontWeight: 500, color: T.t500 }}>
                           Page {currentPage} of {totalPages}
                         </span>
                         
@@ -2300,7 +2343,6 @@ function App() {
                             background: T.surface, color: currentPage === totalPages ? T.t400 : T.t700,
                             fontSize: 12, fontWeight: 600, cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
                             transition: 'all 0.15s',
-                            fontFamily: 'var(--font-display)',
                           }}
                           onMouseEnter={e => { if (currentPage !== totalPages) e.currentTarget.style.borderColor = T.borderHover; }}
                           onMouseLeave={e => { if (currentPage !== totalPages) e.currentTarget.style.borderColor = T.border; }}
@@ -2339,7 +2381,7 @@ function App() {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
                       {/* Raw Inputs */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: T.t500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Raw Inputs</span>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: T.t500, textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'var(--font-display)' }}>Raw Inputs</span>
                         <textarea
                           value={converterInput}
                           onChange={e => { setConverterInput(e.target.value); setConverterCopied(false); }}
@@ -2363,7 +2405,7 @@ function App() {
                       {/* Converted Outputs */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 11, fontWeight: 600, color: T.t500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>snake_case outputs</span>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: T.t500, textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'var(--font-display)' }}>snake_case outputs</span>
                           {convertedText && (
                             <button
                               onClick={() => {
@@ -2467,7 +2509,6 @@ function App() {
                       padding: '10px 20px', borderRadius: 8, border: 'none',
                       background: T.grad || T.purple, color: '#fff',
                       fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                      fontFamily: 'var(--font-display)',
                     }}
                   >
                     Search
@@ -2593,7 +2634,7 @@ function App() {
                             style={{
                               background: isActive ? '#7C3AED' : 'transparent',
                               color: isActive ? '#fff' : isDisabled ? '#9CA3AF' : '#22232A',
-                              fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: isActive ? 700 : 600,
+                              fontSize: 12, fontWeight: isActive ? 700 : 600,
                               padding: '6px 12px', borderRadius: 7, border: 'none',
                               cursor: isDisabled ? 'default' : 'pointer',
                               opacity: isDisabled ? 0.55 : 1,
@@ -2726,18 +2767,18 @@ function App() {
                     {totalPages > 1 && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                         <button onClick={() => setScoutPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: 600, color: safePage === 1 ? '#9CA3AF' : '#6B7280', background: 'transparent', border: 'none', cursor: safePage === 1 ? 'default' : 'pointer', padding: '6px 10px', borderRadius: 7 }}>
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600, color: safePage === 1 ? '#9CA3AF' : '#6B7280', background: 'transparent', border: 'none', cursor: safePage === 1 ? 'default' : 'pointer', padding: '6px 10px', borderRadius: 7 }}>
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6 L9 12 L15 18"/></svg>Prev
                         </button>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '0 6px' }}>
                           {pageButtons.map((p, i) => p === '…'
                             ? <span key={i} style={{ color: '#9CA3AF', fontSize: 12, padding: '0 2px' }}>…</span>
                             : <button key={p} onClick={() => setScoutPage(p)}
-                                style={{ width: 28, height: 28, borderRadius: 7, border: p === safePage ? 'none' : '1px solid #ECECF0', background: p === safePage ? '#7C3AED' : '#fff', color: p === safePage ? '#fff' : '#22232A', fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: p === safePage ? 700 : 600, cursor: 'pointer', fontVariantNumeric: 'tabular-nums' }}>{p}</button>
+                                style={{ width: 28, height: 28, borderRadius: 7, border: p === safePage ? 'none' : '1px solid #ECECF0', background: p === safePage ? '#7C3AED' : '#fff', color: p === safePage ? '#fff' : '#22232A', fontSize: 12, fontWeight: p === safePage ? 700 : 600, cursor: 'pointer', fontVariantNumeric: 'tabular-nums' }}>{p}</button>
                           )}
                         </div>
                         <button onClick={() => setScoutPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: 600, color: safePage === totalPages ? '#9CA3AF' : '#6D28D9', background: 'transparent', border: 'none', cursor: safePage === totalPages ? 'default' : 'pointer', padding: '6px 10px', borderRadius: 7 }}>
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600, color: safePage === totalPages ? '#9CA3AF' : '#6D28D9', background: 'transparent', border: 'none', cursor: safePage === totalPages ? 'default' : 'pointer', padding: '6px 10px', borderRadius: 7 }}>
                           Next<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6 L15 12 L9 18"/></svg>
                         </button>
                       </div>
