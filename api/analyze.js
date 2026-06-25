@@ -6,7 +6,7 @@ import { buildMatchPrompt } from '../prompts/match.js';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const MODEL = 'gemini-2.5-flash';
-const GROQ_MODEL = 'llama-3.2-90b-vision-preview';
+const GROQ_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
