@@ -6,6 +6,7 @@ import { buildMatchPrompt } from '../prompts/match.js';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const MODEL = 'gemini-2.5-flash';
+const GROQ_MODEL = 'llama-3.2-90b-vision-preview';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -62,6 +63,11 @@ export default async function handler(req, res) {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+function is429(err) {
+  const msg = err.message || '';
+  return msg.includes('429') || msg.includes('quota') || msg.includes('Too Many Requests') || msg.includes('RESOURCE_EXHAUSTED');
+}
+
 async function withRetry(fn, retries = 2, delayMs = 3000) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
@@ -77,6 +83,32 @@ async function withRetry(fn, retries = 2, delayMs = 3000) {
       }
     }
   }
+}
+
+// Groq OpenAI-compatible fallback (vision + text)
+async function groqGenerate({ system, user, images = [] }) {
+  if (!process.env.GROQ_API_KEY) throw new Error('GROQ_API_KEY not set — cannot fall back');
+
+  const userContent = images.length
+    ? [...images.map(img => ({ type: 'image_url', image_url: { url: img } })), { type: 'text', text: user }]
+    : user;
+
+  const messages = [];
+  if (system) messages.push({ role: 'system', content: system });
+  messages.push({ role: 'user', content: userContent });
+
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ model: GROQ_MODEL, messages, temperature: 0.2 }),
+  });
+
+  if (!res.ok) throw new Error(`Groq ${res.status}: ${await res.text()}`);
+  const data = await res.json();
+  return data.choices[0].message.content;
 }
 
 function parseDataUrl(dataUrl) {
@@ -104,17 +136,28 @@ function parseJson(raw, fallback) {
 // ─── Step 1: Identify interactions ───────────────────────────────────────────
 
 async function identifyInteractions(images, featureContext) {
+  const prompt = buildIdentifyPrompt(featureContext);
   try {
-    return await withRetry(async () => {
+    const raw = await withRetry(async () => {
       const model = genAI.getGenerativeModel({ model: MODEL });
-      const prompt = buildIdentifyPrompt(featureContext);
       const result = await model.generateContent([prompt, ...imageParts(images)]);
-      const raw = result.response.text();
-      const parsed = parseJson(raw, []);
-      return Array.isArray(parsed) ? parsed : [];
+      return result.response.text();
     });
+    const parsed = parseJson(raw, []);
+    return Array.isArray(parsed) ? parsed : [];
   } catch (err) {
-    console.error('Identify step failed, skipping:', err.message);
+    if (is429(err)) {
+      console.warn('Gemini quota hit on Step 1 — falling back to Groq');
+      try {
+        const raw = await groqGenerate({ user: prompt, images });
+        const parsed = parseJson(raw, []);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (groqErr) {
+        console.error('Groq Step 1 also failed:', groqErr.message);
+      }
+    } else {
+      console.error('Identify step failed, skipping:', err.message);
+    }
     return [];
   }
 }
@@ -133,20 +176,33 @@ async function matchInteractions(interactions, sheetData, crossData, sessionEven
   const unique = [...new Set(referenceNames)];
   if (unique.length === 0) return {};
 
+  const prompt = buildMatchPrompt(interactions, unique);
+
+  const toResult = (raw) => {
+    const parsed = parseJson(raw, {});
+    if (typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    return Object.fromEntries(Object.entries(parsed).filter(([, v]) => v && typeof v === 'string'));
+  };
+
   try {
-    return await withRetry(async () => {
+    const raw = await withRetry(async () => {
       const model = genAI.getGenerativeModel({ model: MODEL });
-      const prompt = buildMatchPrompt(interactions, unique);
       const result = await model.generateContent(prompt);
-      const raw = result.response.text();
-      const parsed = parseJson(raw, {});
-      if (typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-      return Object.fromEntries(
-        Object.entries(parsed).filter(([, v]) => v && typeof v === 'string')
-      );
+      return result.response.text();
     });
+    return toResult(raw);
   } catch (err) {
-    console.error('Match step failed, skipping:', err.message);
+    if (is429(err)) {
+      console.warn('Gemini quota hit on Step 2 — falling back to Groq');
+      try {
+        const raw = await groqGenerate({ user: prompt });
+        return toResult(raw);
+      } catch (groqErr) {
+        console.error('Groq Step 2 also failed:', groqErr.message);
+      }
+    } else {
+      console.error('Match step failed, skipping:', err.message);
+    }
     return {};
   }
 }
@@ -165,14 +221,21 @@ async function generateSpec(images, platform, featureContext, interactions, reso
 
   const userText = `${contextText}${interactionContext}Generate the complete event tracking spec for this screen.`;
 
-  const model = genAI.getGenerativeModel({
-    model: MODEL,
-    systemInstruction: systemPrompt,
-  });
-
-  const result = await withRetry(() => model.generateContent([userText, ...imageParts(images)]));
-  const raw = result.response.text();
-  const parsed = parseJson(raw, null);
-  if (!parsed) throw new Error('Failed to parse event specifications from the AI response. Please try again.');
-  return parsed;
+  try {
+    const model = genAI.getGenerativeModel({ model: MODEL, systemInstruction: systemPrompt });
+    const result = await withRetry(() => model.generateContent([userText, ...imageParts(images)]));
+    const raw = result.response.text();
+    const parsed = parseJson(raw, null);
+    if (!parsed) throw new Error('Failed to parse event specifications from the AI response. Please try again.');
+    return parsed;
+  } catch (err) {
+    if (is429(err)) {
+      console.warn('Gemini quota hit on Step 3 — falling back to Groq');
+      const raw = await groqGenerate({ system: systemPrompt, user: userText, images });
+      const parsed = parseJson(raw, null);
+      if (!parsed) throw new Error('Failed to parse event specifications from the AI response. Please try again.');
+      return parsed;
+    }
+    throw err;
+  }
 }
