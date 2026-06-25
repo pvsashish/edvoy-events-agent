@@ -760,8 +760,10 @@ function App() {
   const [generatedContext, setGeneratedContext]         = useState('');
   const [events, setEvents]                = useState([]);
   const [loading, setLoading]              = useState(false);
+  const [analyzeStep, setAnalyzeStep]      = useState(null); // null | 'identifying' | 'matching' | 'generating'
   const [processing, setProcessing]        = useState(false);
   const [error, setError]                  = useState('');
+  const [eventsPlatform, setEventsPlatform] = useState(null); // which platform the current events table came from
   
   // Interactions
   const [copiedState, setCopiedState]      = useState(''); // '', 'tsv', 'csv', 'json'
@@ -978,11 +980,24 @@ function App() {
     const controller = new AbortController();
     analyzeAbortRef.current = controller;
 
-    setLoading(true); setError(''); setEvents([]);
+    setLoading(true); setAnalyzeStep('identifying'); setError(''); setEvents([]);
 
     const images = attachments.flatMap(a =>
       a.type === 'image' ? [a.dataUrl] : (a.frames || [])
     );
+
+    // If the user already generated events for the OTHER platform this session,
+    // pass those as sessionEvents so the matcher can reuse their names.
+    const otherPlatform = platform === 'ga4' ? 'amplitude' : 'ga4';
+    const sessionEvents = (eventsPlatform === otherPlatform && events.length > 0)
+      ? {
+          eventNames: [...new Set(events.map(e => e.suggested_event_name).filter(Boolean))],
+          parameters: [...new Set(events.map(e => e.parameter).filter(Boolean))],
+        }
+      : null;
+
+    const stepT1 = setTimeout(() => setAnalyzeStep('matching'), 5000);
+    const stepT2 = setTimeout(() => setAnalyzeStep('generating'), 10000);
 
     try {
       const res  = await fetch('/api/analyze', {
@@ -991,20 +1006,21 @@ function App() {
         body: JSON.stringify({
           images, platform, featureContext,
           sheetData: sheetConfig[platform]?.data || null,
-          // Cross-reference the other product's tracking sheet so Portal (GA4) and
-          // App (Amplitude) stay consistent — mirror naming when an equivalent flow exists.
           crossData: platform === 'amplitude' ? (sheetConfig.ga4?.data || null) : (sheetConfig.amplitude?.data || null),
+          sessionEvents,
         }),
         signal: controller.signal,
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Analysis failed');
       
+      clearTimeout(stepT1); clearTimeout(stepT2);
       const newEvents = (data.events || []).map(ev => ({
         ...ev,
         _rowId: Math.random().toString(36).slice(2)
       }));
       setEvents(newEvents);
+      setEventsPlatform(platform);
       setGeneratedAttachments([...attachments]);
       setGeneratedContext(featureContext);
 
@@ -1037,11 +1053,13 @@ function App() {
       // Scroll to results
       setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
     } catch (err) {
+      clearTimeout(stepT1); clearTimeout(stepT2);
       if (err.name === 'AbortError') return;
       setError(err.message);
     } finally {
       if (analyzeAbortRef.current === controller) {
         setLoading(false);
+        setAnalyzeStep(null);
       }
     }
   };
@@ -1143,7 +1161,8 @@ function App() {
 
   const copyJson = () => {
     if (hasValidationErrors()) { blockExportWithError(); return; }
-    navigator.clipboard.writeText(JSON.stringify(events, null, 2));
+    const clean = events.map(({ _rowId, ...rest }) => rest);
+    navigator.clipboard.writeText(JSON.stringify(clean, null, 2));
     startCopyTimeout('json');
   };
 
@@ -1228,6 +1247,7 @@ function App() {
 
   const isSameAttachments = events.length > 0 &&
     attachments.length > 0 &&
+    platform === eventsPlatform &&
     featureContext === generatedContext &&
     attachments.length === generatedAttachments.length &&
     attachments.every((a, idx) => a.id === generatedAttachments[idx]?.id);
@@ -1783,7 +1803,12 @@ function App() {
                   ) : (
                     <IconSparkles size={16} />
                   )}
-                  {loading ? 'Analyzing Screenshots…' : (isSameAttachments ? 'Spec Already Generated' : 'Generate Event Spec')}
+                  {loading
+                    ? (analyzeStep === 'identifying' ? 'Identifying interactions…'
+                      : analyzeStep === 'matching'   ? 'Matching with sheets…'
+                      : analyzeStep === 'generating' ? 'Generating spec…'
+                      : 'Analyzing…')
+                    : (isSameAttachments ? 'Spec Already Generated' : 'Generate Event Spec')}
                 </button>
 
                 {isSameAttachments && !loading && (
@@ -1864,13 +1889,15 @@ function App() {
                     }}>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <span style={{
-                            background: T.purple, color: '#fff',
-                            padding: '2px 10px', borderRadius: 99,
-                            fontSize: 11, fontWeight: 600, letterSpacing: '0.01em',
-                          }}>
-                            {events.length} rows
-                          </span>
+                          {!loading && (
+                            <span style={{
+                              background: T.purple, color: '#fff',
+                              padding: '2px 10px', borderRadius: 99,
+                              fontSize: 11, fontWeight: 600, letterSpacing: '0.01em',
+                            }}>
+                              {events.length} rows
+                            </span>
+                          )}
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             {platform === 'ga4' ? (
                               <IconGA4 size={13} style={{ borderRadius: 2 }} />

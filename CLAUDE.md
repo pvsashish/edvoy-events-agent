@@ -18,20 +18,21 @@ PM tool for Edvoy's analytics team. Lets PMs upload screenshots/videos of the Ed
 | Frontend | React 18 UMD + Babel standalone — **no build step**, edit `public/app.jsx` directly |
 | Backend | Vercel serverless (`api/*.js`) |
 | Database | Neon PostgreSQL (`DATABASE_URL` env var) |
-| AI | Groq API (`GROQ_API_KEY`) — `meta-llama/llama-4-scout-17b-16e-instruct` |
+| AI | Gemini 2.5 Flash (`GEMINI_API_KEY`) — 3-step pipeline: identify → match → generate |
 | Hosting | Vercel — `public/` is static root, `api/` is serverless |
 
 Key files:
-- `public/app.jsx` — entire React frontend (single file, ~2800 lines)
+- `public/app.jsx` — entire React frontend (single file, ~2900 lines)
+- `api/analyze.js` — Gemini 3-step pipeline
 - `api/screens.js` — Scout CRUD (`GET/POST/DELETE /api/screens`)
-- `api/analyze.js` — Groq vision call
 - `api/db.js` — Neon pool + table init
+- `prompts/` — `ga4.js`, `amplitude.js`, `identify.js`, `match.js`
 - `guidelines/` — all project docs (committed, pushed)
 - `SESSION.md` — local-only session state (gitignored)
 
 ---
 
-## Current State (as of 2026-06-23)
+## Current State (as of 2026-06-25)
 
 ### ⚠️ BLOCKER: Neon data transfer quota exceeded
 - All 105 Scout records are intact in Neon DB — nothing lost

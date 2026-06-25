@@ -6,7 +6,7 @@
     "dev": "npx vercel@latest dev"
   },
   "dependencies": {
-    "groq-sdk": "^0.9.1",
+    "@google/generative-ai": "^0.24.1",
     "pg": "^8.21.0"
   },
   "devDependencies": {

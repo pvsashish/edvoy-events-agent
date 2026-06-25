@@ -1,69 +1,35 @@
-import Groq from 'groq-sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { buildGA4Prompt } from '../prompts/ga4.js';
 import { buildAMPPrompt } from '../prompts/amplitude.js';
+import { buildIdentifyPrompt } from '../prompts/identify.js';
+import { buildMatchPrompt } from '../prompts/match.js';
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const MODEL = 'gemini-2.5-flash';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { images, platform, featureContext, sheetData, crossData } = req.body;
+  const { images, platform, featureContext, sheetData, crossData, sessionEvents } = req.body;
 
   if (!images || !images.length) {
     return res.status(400).json({ error: 'No images provided' });
   }
-
   if (!['ga4', 'amplitude'].includes(platform)) {
     return res.status(400).json({ error: 'platform must be ga4 or amplitude' });
   }
 
-  // Build prompt with live sheet data if available (dynamic parameter/category lists)
-  const systemPrompt = platform === 'ga4'
-    ? buildGA4Prompt(sheetData || null, crossData || null)
-    : buildAMPPrompt(sheetData || null, crossData || null);
-
-  const contextText = featureContext
-    ? `Feature context: ${featureContext}\n\n`
-    : '';
-
-  const userContent = [
-    {
-      type: 'text',
-      text: `${contextText}Carefully analyze the screenshot(s). Think through the user journey on this screen and what interactions are worth tracking analytically. Then output the JSON array of event specs.`,
-    },
-    ...images.map((img) => ({
-      type: 'image_url',
-      image_url: { url: img },
-    })),
-  ];
-
   try {
-    const completion = await groq.chat.completions.create({
-      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userContent },
-      ],
-      temperature: 0.2,
-      max_tokens: 4096,
-    });
+    // Step 1: Identify — what interactions exist on this screen?
+    const interactions = await identifyInteractions(images, featureContext);
 
-    const raw = completion.choices[0]?.message?.content || '[]';
+    // Step 2: Match — do any of those interactions already have event names?
+    const resolvedNames = await matchInteractions(interactions, sheetData, crossData, sessionEvents);
 
-    let events;
-    try {
-      events = JSON.parse(raw);
-    } catch {
-      try {
-        const match = raw.match(/\[[\s\S]*\]/);
-        events = match ? JSON.parse(match[0]) : [];
-      } catch (parseErr) {
-        console.error('JSON extraction failed:', parseErr, 'Raw:', raw);
-        return res.status(400).json({ error: 'Failed to parse event specifications from the AI response. Please try again.' });
-      }
-    }
+    // Step 3: Generate — produce the full spec with pre-matched names as hard constraints
+    let events = await generateSpec(images, platform, featureContext, interactions, resolvedNames, sheetData, crossData);
 
     if (Array.isArray(events)) {
       events = events.map(e => {
@@ -78,82 +44,135 @@ export default async function handler(req, res) {
           } else if (param.endsWith('_id')) {
             val = 'dynamic value';
           } else if (val.length > 60) {
-            // AI sometimes pastes full article/paragraph text — keep sample values short
             val = val.slice(0, 55).trimEnd() + '…';
           }
 
-          return {
-            ...e,
-            parameter: param,
-            sample_value: val,
-          };
+          return { ...e, parameter: param, sample_value: val };
         }
         return e;
       });
-
-      // Cross-platform consistency pass: the first call tends to paraphrase
-      // ("document_details_filled") instead of reusing an existing name
-      // ("document_fill_in_your_details_save") even when told to copy verbatim —
-      // a single-shot scan against 600+ names asks too much of a 17B model.
-      // A second, narrowly-scoped matching call performs much better at this.
-      if (crossData && crossData.eventNames?.length > 0) {
-        try {
-          const eventNameMap = await matchCrossPlatformNames(events, crossData);
-          events = events.map(e => ({
-            ...e,
-            suggested_event_name: eventNameMap[e.suggested_event_name] || e.suggested_event_name,
-          }));
-        } catch (matchErr) {
-          console.error('Cross-platform matching pass failed, keeping original names:', matchErr);
-        }
-      }
     }
 
     return res.status(200).json({ events });
   } catch (err) {
-    console.error('Groq error:', err);
+    console.error('Analysis error:', err);
     return res.status(500).json({ error: err.message || 'AI analysis failed' });
   }
 }
 
-// Narrow, text-only matching pass: given a short list of newly drafted event
-// names, decide for each one whether it's the exact same user action as an
-// existing event on the other platform. Returns exact-string replacements only —
-// no rewriting, no new names, just a name -> name map applied in code.
-// Parameter names are intentionally NOT cross-matched here — parameter equivalence
-// depends heavily on the surrounding event context, and a name-only comparison
-// (e.g. "upload_method" vs "document_category") produces false-positive matches
-// that would corrupt the schema rather than clean it up.
-async function matchCrossPlatformNames(events, crossData) {
-  const draftEventNames = [...new Set(events.map(e => e.suggested_event_name).filter(Boolean))];
-  if (draftEventNames.length === 0) return {};
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-  const matchPrompt = `You are auditing draft analytics event names against an existing reference taxonomy from the same product's other platform (Portal/web vs App/mobile — same company, same user actions, different surface).
+async function withRetry(fn, retries = 2, delayMs = 3000) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const is503 = err.message?.includes('503') || err.message?.includes('Service Unavailable') || err.message?.includes('overloaded');
+      if (is503 && attempt < retries) {
+        console.warn(`Gemini 503, retrying in ${delayMs}ms (attempt ${attempt + 1}/${retries})...`);
+        await new Promise(r => setTimeout(r, delayMs));
+        delayMs *= 2;
+      } else {
+        throw err;
+      }
+    }
+  }
+}
 
-Your only job: for each DRAFT name below, decide if it represents the EXACT SAME user action as one of the REFERENCE names. If yes, return that reference name's exact string. If no confident match exists, return the draft name unchanged. Be strict — only map when you're confident it's the same action, not just similar wording.
+function parseDataUrl(dataUrl) {
+  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) throw new Error('Invalid image data URL');
+  return { mimeType: match[1], data: match[2] };
+}
 
-DRAFT EVENT NAMES:
-${JSON.stringify(draftEventNames)}
+function imageParts(images) {
+  return images.map(img => {
+    const { mimeType, data } = parseDataUrl(img);
+    return { inlineData: { mimeType, data } };
+  });
+}
 
-REFERENCE EVENT NAMES (existing, source of truth — copy these exactly when matched):
-${JSON.stringify(crossData.eventNames || [])}
+function parseJson(raw, fallback) {
+  try { return JSON.parse(raw); } catch {}
+  const arrMatch = raw.match(/\[[\s\S]*\]/);
+  if (arrMatch) { try { return JSON.parse(arrMatch[0]); } catch {} }
+  const objMatch = raw.match(/\{[\s\S]*\}/);
+  if (objMatch) { try { return JSON.parse(objMatch[0]); } catch {} }
+  return fallback;
+}
 
-Return ONLY this JSON object, no markdown, no explanation:
-{ "draft_name": "matched_reference_name_or_same_draft_name_if_no_match" }
-Every draft name must appear as a key, even if unchanged.`;
+// ─── Step 1: Identify interactions ───────────────────────────────────────────
 
-  const completion = await groq.chat.completions.create({
-    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-    messages: [{ role: 'user', content: matchPrompt }],
-    temperature: 0.2,
-    max_tokens: 2048,
+async function identifyInteractions(images, featureContext) {
+  try {
+    return await withRetry(async () => {
+      const model = genAI.getGenerativeModel({ model: MODEL });
+      const prompt = buildIdentifyPrompt(featureContext);
+      const result = await model.generateContent([prompt, ...imageParts(images)]);
+      const raw = result.response.text();
+      const parsed = parseJson(raw, []);
+      return Array.isArray(parsed) ? parsed : [];
+    });
+  } catch (err) {
+    console.error('Identify step failed, skipping:', err.message);
+    return [];
+  }
+}
+
+// ─── Step 2: Match interactions to existing event names ──────────────────────
+
+async function matchInteractions(interactions, sheetData, crossData, sessionEvents) {
+  if (!interactions.length) return {};
+
+  const referenceNames = [
+    ...(sheetData?.eventNames || []),
+    ...(crossData?.eventNames || []),
+    ...(sessionEvents?.eventNames || []),
+  ].filter(Boolean);
+
+  const unique = [...new Set(referenceNames)];
+  if (unique.length === 0) return {};
+
+  try {
+    return await withRetry(async () => {
+      const model = genAI.getGenerativeModel({ model: MODEL });
+      const prompt = buildMatchPrompt(interactions, unique);
+      const result = await model.generateContent(prompt);
+      const raw = result.response.text();
+      const parsed = parseJson(raw, {});
+      if (typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+      return Object.fromEntries(
+        Object.entries(parsed).filter(([, v]) => v && typeof v === 'string')
+      );
+    });
+  } catch (err) {
+    console.error('Match step failed, skipping:', err.message);
+    return {};
+  }
+}
+
+// ─── Step 3: Generate spec ────────────────────────────────────────────────────
+
+async function generateSpec(images, platform, featureContext, interactions, resolvedNames, sheetData, crossData) {
+  const systemPrompt = platform === 'ga4'
+    ? buildGA4Prompt(sheetData || null, crossData || null, resolvedNames)
+    : buildAMPPrompt(sheetData || null, crossData || null, resolvedNames);
+
+  const contextText = featureContext ? `Feature context: ${featureContext}\n\n` : '';
+  const interactionContext = interactions.length > 0
+    ? `Identified interactions on this screen:\n${interactions.map((x, i) => `${i + 1}. ${x}`).join('\n')}\n\n`
+    : '';
+
+  const userText = `${contextText}${interactionContext}Generate the complete event tracking spec for this screen.`;
+
+  const model = genAI.getGenerativeModel({
+    model: MODEL,
+    systemInstruction: systemPrompt,
   });
 
-  const raw = completion.choices[0]?.message?.content || '{}';
-  try {
-    return JSON.parse(raw);
-  } catch {
-    const match = raw.match(/\{[\s\S]*\}/);
-    try { return match ? JSON.parse(match[0]) : {}; } catch { return {}; }
-  }
+  const result = await withRetry(() => model.generateContent([userText, ...imageParts(images)]));
+  const raw = result.response.text();
+  const parsed = parseJson(raw, null);
+  if (!parsed) throw new Error('Failed to parse event specifications from the AI response. Please try again.');
+  return parsed;
 }

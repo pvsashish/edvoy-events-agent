@@ -2,7 +2,7 @@ const DEFAULT_CATEGORIES = ["App", "Applications", "Articles", "Career", "City P
 
 const DEFAULT_PARAMETERS = ["about_edvoy", "amount", "app_store", "article_name", "back", "before_or_after_signup", "book_appoinment", "bottom_cta", "budget_per_week", "cancel_application", "cancellation_reason", "card_interacted_with", "card_status", "card_type", "card_value", "choose_students_or_partners", "city_name", "city_of_residence", "clicked_from", "closure_date", "contact_us", "content_title", "continue_with_google_from", "country_name", "course_cta_name", "course_duration", "course_name", "currency", "currency_change", "destination", "discussion_reason", "document_status", "document_category", "document_name", "document_sub_category", "duration", "email", "email_or_continue_with_google", "email_signup_from", "english_test_details", "event_name", "events_form_submission", "events_list_card", "exam_cta", "exams_form_submission", "explore_stories_cta_clicked", "express", "fees_range_selected", "from", "genie", "google_play_store", "gs_mobile_number", "header_log_in_btn", "icon_value", "intake_details", "intake_month", "intake_month_selected", "intake_year", "intake_year_selected", "intent", "is_clicked", "is_email", "is_limited_seats", "is_otp_verified", "is_shortlisted", "is_show_all", "is_viewed", "loan_amount", "menu_name", "mobile_otp_verified_from", "mode_of_study", "move_in_month", "move_in_year", "name", "nationality", "number", "option_selected", "options_name", "placement", "preference_details", "preferred_study_level", "product", "qualification_date_of_completion", "qualification_details", "qualification_study_level", "reason", "receive_marketing_messages", "referral_code", "referred_student_name", "resent_otp_from", "search_term", "session_date_and_time", "share_item", "shortlist_from", "show_all", "show_all_courses_in_expand", "show_all_courses_in_mobile_sticky", "show_or_hide", "sign_up_cta_mobile_top_navbar", "standardised_test_details", "start_date_month", "start_date_year", "status", "step", "subject_name", "subject_names", "subjects", "subscribed_to_newsletter", "suggested_value", "tab_clicked", "tab_name", "terms_and_conditions_accepted", "title", "title_of_the_event", "top_courses", "topics_selected", "true_or_false", "university", "university_name", "url", "value", "values", "vc_scheduled_day", "vc_scheduled_month", "vc_scheduled_time", "vc_scheduled_year", "via"];
 
-export function buildGA4Prompt(sheetData = null, appData = null) {
+export function buildGA4Prompt(sheetData = null, appData = null, resolvedNames = {}) {
   const categories = sheetData?.categories?.length > 0
     ? sheetData.categories
     : DEFAULT_CATEGORIES;
@@ -63,7 +63,7 @@ TRACKING SHEET FORMAT — return a JSON array. One object per parameter row:
 }
 
 If an event has 3 parameters, produce 3 rows with the same event name, one per parameter.
-${existingEventNames}${appReference}
+${Object.keys(resolvedNames).length > 0 ? `\nPRE-MATCHED EVENT NAMES — MANDATORY. These have been confirmed against your existing taxonomy. Copy them character-for-character, do not rename:\n${JSON.stringify(resolvedNames, null, 2)}\n` : ''}${existingEventNames}${appReference}
 EXISTING CATEGORIES (prefer these; only add a new one if the screen is genuinely a new feature area):
 ${JSON.stringify(categories)}
 

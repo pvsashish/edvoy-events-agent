@@ -1,6 +1,6 @@
 # Architecture — Edvoy Events Agent
 
-**Last updated:** 2026-06-23 (Scout workspace redesigned, 105 events across 24 screens)
+**Last updated:** 2026-06-25 (Migrated to Gemini 2.5 Flash; 3-step analysis pipeline)
 
 ## What It Does
 PM tool for Edvoy's analytics team. Upload screenshots or videos of the Edvoy web portal or mobile app, select GA4 or Amplitude, and receive correctly formatted analytics events + parameters matching the tracking sheet format (Category, Suggested Event Name, Parameter, Sample Value). Specs are persisted to Neon PostgreSQL with localStorage fallback. Also includes Scout — a visual event map that shows real screenshots with highlighted UI elements for each tracked event.
@@ -13,7 +13,7 @@ Edvoy product managers and analytics team.
 |-------|------|
 | Frontend | React 18 (UMD via CDN + Babel standalone — no build step) |
 | Backend | Vercel serverless functions (Node.js ESM) |
-| AI | Groq API — `meta-llama/llama-4-scout-17b-16e-instruct` (vision) |
+| AI | Gemini 2.5 Flash (`@google/generative-ai`) — 3-step pipeline: identify → match → generate |
 | Database | Neon PostgreSQL (pooled via `pg` — `DATABASE_URL`) |
 | Hosting | Vercel (static from `public/` + serverless from `api/`) |
 
@@ -21,7 +21,7 @@ Edvoy product managers and analytics team.
 ```
 events-agent/
 ├── api/
-│   ├── analyze.js       ← POST /api/analyze — calls Groq vision, normalises events JSON
+│   ├── analyze.js       ← POST /api/analyze — 3-step Gemini pipeline, normalises events JSON
 │   ├── db.js            ← Neon PostgreSQL pool + self-initialising table setup
 │   ├── history.js       ← GET/POST/DELETE /api/history — specs history CRUD
 │   ├── screens.js       ← GET/POST/DELETE /api/screens — Scout event map CRUD
@@ -32,8 +32,10 @@ events-agent/
 │   ├── app.jsx          ← Full React app (sidebar nav, Generate tab, History tab, Naming tab, Scout tab)
 │   └── logo.png         ← Local brand logo (avoids CORS / hotlink blocks from edvoy.com)
 ├── prompts/
-│   ├── ga4.js           ← GA4_PROMPT — system prompt with tracking sheet format + naming rules
-│   └── amplitude.js     ← AMP_PROMPT — system prompt with tracking sheet format + naming rules
+│   ├── ga4.js           ← buildGA4Prompt() — Step 3 system prompt with naming rules + resolvedNames injection
+│   ├── amplitude.js     ← buildAMPPrompt() — Step 3 system prompt with naming rules + resolvedNames injection
+│   ├── identify.js      ← buildIdentifyPrompt() — Step 1: list interactions from screenshot
+│   └── match.js         ← buildMatchPrompt() — Step 2: map interactions to existing event names
 ├── guidelines/          ← Project continuity docs (committed, pushed to GitHub)
 ├── .claude/
 │   └── launch.json      ← Preview server config (port 3333, vercel dev)
@@ -46,7 +48,7 @@ events-agent/
 ## Environment Variables
 | Variable | Where | Purpose |
 |----------|-------|---------|
-| `GROQ_API_KEY` | `.env` + Vercel env | Groq API auth |
+| `GEMINI_API_KEY` | `.env` + Vercel env | Google Gemini API auth |
 | `DATABASE_URL` | `.env` + Vercel env | Neon PostgreSQL connection string |
 
 ## Database Schema
@@ -83,7 +85,7 @@ Table: `edvoy_specs_history`
 - **Base64 images**: Screenshots converted client-side to data URLs, stored in Neon as TEXT. ⚠️ This causes Neon free-tier data transfer overruns — planned migration to Vercel Blob (store URL in Neon instead). See SCOUT_FLOW.md.
 - **Video frame extraction**: Canvas API extracts 3 JPEG frames client-side; Groq receives images only.
 - **`outputDirectory: public`**: Vercel serves `public/` as static root — `index.html` resolves at `/`.
-- **Groq model**: `meta-llama/llama-4-scout-17b-16e-instruct` — both llama-3.2 vision variants decommissioned June 2026.
+- **Gemini 2.5 Flash**: free tier model. `gemini-2.5-pro` has 0 free quota. Uses `systemInstruction` param (not user-turn) and `inlineData` image format (not `image_url`).
 - **JSON parse fallback**: Regex extracts `[…]` from model response in case it wraps in markdown fences.
 - **Sample value normalisation**: `is_clicked` params → `true/false`; `*_id` params → `dynamic value` (enforced in `api/analyze.js`).
 - **DB-less fallback**: `api/history.js` returns empty array (not an error) when `DATABASE_URL` is unset; frontend falls back to localStorage.

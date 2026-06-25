@@ -5,7 +5,8 @@
       "name": "events-agent",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["vercel@latest", "dev", "--listen", "3333"],
-      "port": 3333
+      "port": 3333,
+      "autoPort": false
     }
   ]
 }

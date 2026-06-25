@@ -2,7 +2,7 @@ const DEFAULT_CATEGORIES = ["App Update Screen", "Course Page", "Genie Banner", 
 
 const DEFAULT_PARAMETERS = ["cancellation_reason", "city_of_residence", "country_name", "course_name", "discussion_reason", "email", "email_or_continue_with_google", "express", "from", "genie", "image_url", "intake_month", "intake_year", "is_enabled", "name", "nationality", "option_selected", "preferred_destination", "preferred_study_level", "provider", "receive_marketing_messages", "referral_code", "screen", "session_date_and_time", "setting_type", "title", "topics_selected", "update_type", "values"];
 
-export function buildAMPPrompt(sheetData = null, portalData = null) {
+export function buildAMPPrompt(sheetData = null, portalData = null, resolvedNames = {}) {
   const categories = sheetData?.categories?.length > 0
     ? sheetData.categories
     : DEFAULT_CATEGORIES;
@@ -66,7 +66,7 @@ TRACKING SHEET FORMAT — return a JSON array. One object per property row:
 }
 
 If an event has 3 properties, produce 3 rows with the same event name, one per property.
-${existingEventNames}${portalReference}
+${Object.keys(resolvedNames).length > 0 ? `\nPRE-MATCHED EVENT NAMES — MANDATORY. These have been confirmed against your existing taxonomy. Copy them character-for-character, do not rename:\n${JSON.stringify(resolvedNames, null, 2)}\n` : ''}${existingEventNames}${portalReference}
 EXISTING CATEGORIES (prefer these; only add a new one if the screen is genuinely a new feature area):
 ${JSON.stringify(categories)}
 
