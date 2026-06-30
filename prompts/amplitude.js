@@ -46,12 +46,12 @@ REASONING APPROACH — before writing events, think through:
 2. Which interactions are decision-relevant (move a user through a funnel, signal intent, or drive retention)?
 3. For each trackable event: what 2–4 properties would let a PM slice and answer "why did this happen?"
    • "Who did this?" → user_type (student/counsellor), platform (web/ios/android)
-   • "From where in the product?" → from, screen, placement
+   • "From where in the product?" → screen, placement
    • "What was the context?" → country_name, course_name, title, provider
    • "What did they choose/do?" → option_selected, setting_type, update_type, intent
 
 QUALITY STANDARD:
-✓ GOOD — "university_shortlist_cta_clicked" with props: country_name, course_name, from, user_type
+✓ GOOD — "university_shortlist_cta_clicked" with props: country_name, course_name
 ✗ BAD  — "cta_clicked" with only is_clicked: true  →  tells you nothing
 ✗ BAD  — new property name that means the same as an existing one (e.g. "btn_label" when "title" exists)
 ✗ BAD  — inventing a near-duplicate of an existing event (e.g. "document_item_clicked" when "add_document_clicked" already covers that same tap) — reuse the existing event, do not split one action into two
@@ -84,6 +84,7 @@ EXISTING PROPERTIES — you MUST reuse these when purpose matches; inventing syn
 ${JSON.stringify(parameters)}
 
 AMPLITUDE NAMING RULES:
+- Properties are OPTIONAL — an Amplitude event may have ZERO properties. NEVER add a generic "from" (or any filler property) just to give the event a parameter. The "from"-as-minimum rule is GA4-only and does NOT apply to Amplitude. Only include "from" when it is a genuinely relevant, real property of the interaction.
 - Event names and properties are CASE-SENSITIVE. When reusing an existing name or property from the tracking sheet, copy its EXACT casing verbatim — never change its case. The rule below applies only to brand-new names you invent.
 - Lowercase snake_case only — no spaces, no camelCase, no uppercase, no hyphens
 - Event name must describe the object AND the action: "profile_step_completed" not just "step_completed"

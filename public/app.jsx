@@ -1228,11 +1228,29 @@ function App() {
     setTimeout(() => setExportError(''), 4000);
   };
 
+  // For spreadsheet exports: blank the Category + Event Name on continuation rows of the
+  // same event group so a paste into the tracking sheet matches the merged on-screen layout
+  // (value on the first row of the group, empty beneath — like merged cells).
+  const mergedExportRows = () => {
+    let prevKey = null;
+    return events.map(e => {
+      const key = `${(e.category || '').trim()}|${(e.suggested_event_name || '').trim()}`;
+      const firstOfGroup = key !== prevKey;
+      prevKey = key;
+      return {
+        category: firstOfGroup ? (e.category ?? '') : '',
+        suggested_event_name: firstOfGroup ? (e.suggested_event_name ?? '') : '',
+        parameter: e.parameter ?? '',
+        sample_value: e.sample_value ?? '',
+      };
+    });
+  };
+
   const copyTsv = () => {
     if (hasValidationErrors()) { blockExportWithError(); return; }
     const cols = ['category', 'suggested_event_name', 'parameter', 'sample_value'];
     const header = cols.map(c => c.toUpperCase().replace(/_/g, ' ')).join('\t');
-    const rows = events.map(e => cols.map(c => e[c] ?? '').join('\t'));
+    const rows = mergedExportRows().map(e => cols.map(c => e[c] ?? '').join('\t'));
     navigator.clipboard.writeText([header, ...rows].join('\n'));
     startCopyTimeout('tsv');
   };
@@ -1241,7 +1259,7 @@ function App() {
     if (hasValidationErrors()) { blockExportWithError(); return; }
     const cols = ['category', 'suggested_event_name', 'parameter', 'sample_value'];
     const header = cols.map(c => `"${c.toUpperCase().replace(/_/g, ' ')}"`).join(',');
-    const rows = events.map(e => cols.map(c => `"${(e[c] ?? '').replace(/"/g, '""')}"`).join(','));
+    const rows = mergedExportRows().map(e => cols.map(c => `"${(e[c] ?? '').replace(/"/g, '""')}"`).join(','));
     const csvContent = "data:text/csv;charset=utf-8," + [header, ...rows].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
