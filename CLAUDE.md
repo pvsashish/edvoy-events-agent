@@ -51,7 +51,8 @@ Migrate images from Neon to **Vercel Blob** (or Cloudflare R2):
 This eliminates the transfer problem permanently. Neon only stores metadata (~1KB/record), images served from CDN.
 
 ### AI engine (Groq only)
-`meta-llama/llama-4-scout-17b-16e-instruct`, temperature 0 (deterministic — same screenshot → same spec), all 3 pipeline steps. 1,000 RPD free. `GROQ_API_KEY` in Vercel env. Gemini fully removed 2026-06-30 (was capped at 20 RPD).
+`meta-llama/llama-4-scout-17b-16e-instruct`, temperature 0 + `seed: 42` + `top_p: 1`, all 3 pipeline steps. 1,000 RPD free. `GROQ_API_KEY` in Vercel env. Gemini fully removed 2026-06-30 (was capped at 20 RPD).
+**Reproducibility:** Scout is a Mixture-of-Experts model, so output is NOT bit-for-bit deterministic. In practice a real screenshot gives the same spec run-to-run (verified); only contentless/degenerate images vary noticeably.
 
 ### Accuracy rules baked into the pipeline (2026-06-30)
 - **Reuse before inventing**: events/params reused verbatim (case-sensitive) from the synced sheet; new ones only when nothing matches. Sheet parser returns `eventParams` (event→its params) so matched events reuse exact params (e.g. `jump_to_clicked` → `options_name`).

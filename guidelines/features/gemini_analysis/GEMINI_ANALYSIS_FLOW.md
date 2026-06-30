@@ -5,7 +5,7 @@
 _(Filename kept as GEMINI_ANALYSIS_FLOW.md to avoid breaking doc links; the pipeline is Groq-only as of 2026-06-30.)_
 
 ## What It Does
-3-step pipeline that receives base64 image(s) + platform + optional context from the frontend, runs them through Groq Llama-4-Scout (`meta-llama/llama-4-scout-17b-16e-instruct`, temperature 0), and returns a normalised JSON array of analytics events matching the tracking sheet format. Deterministic: same screenshot → same spec.
+3-step pipeline that receives base64 image(s) + platform + optional context from the frontend, runs them through Groq Llama-4-Scout (`meta-llama/llama-4-scout-17b-16e-instruct`, temperature 0 + seed 42), and returns a normalised JSON array of analytics events matching the tracking sheet format. Reproducible on real screenshots; Scout is a Mixture-of-Experts model so output is not bit-for-bit deterministic (contentless images vary).
 
 ## Entry Points
 - File: `api/analyze.js`
@@ -69,7 +69,7 @@ Applied to every row before returning:
 - **Dedup**: one row per `event_name + parameter` (kills weak-model row-explosion)
 
 ## Architecture Decisions
-- **Groq Llama-4-Scout** (`meta-llama/llama-4-scout-17b-16e-instruct`): sole provider, all 3 steps. 1,000 RPD free. Plain `fetch` to `api.groq.com/openai/v1/chat/completions`. `system` role message + images as `image_url` data URLs. No SDK. **temperature 0** → deterministic.
+- **Groq Llama-4-Scout** (`meta-llama/llama-4-scout-17b-16e-instruct`): sole provider, all 3 steps. 1,000 RPD free. Plain `fetch` to `api.groq.com/openai/v1/chat/completions`. `system` role message + images as `image_url` data URLs. No SDK. **temperature 0 + `seed: 42` + `top_p: 1`** → reproducible on real screenshots (MoE → not bit-for-bit deterministic).
 - **Reuse before inventing**: prompts + the matched-event param hint push the model to reuse the sheet's exact events/params (case-sensitive) before coining new ones.
 - **No screen-view events**: identify never emits "screen viewed" — there is no clean screen-view event in the sheet, so the tool doesn't mislabel (as a tab click) or invent one.
 - **Regex JSON fallback**: Model occasionally wraps JSON in markdown fences — regex extracts `[…]` or `{…}`.
@@ -78,7 +78,7 @@ Applied to every row before returning:
 ## Change Log
 | Date | Change |
 |------|--------|
-| 2026-06-30 | **Gemini fully removed — Groq-only, temperature 0 (deterministic).** Reuse-before-inventing for events + params; sheet parser returns `eventParams`; matched-event param hint injected; no screen-view events; matcher tightened (tab_clicked ≠ screen view); parameter casing preserved; row dedup. |
+| 2026-06-30 | **Gemini fully removed — Groq-only, temperature 0 + seed 42 (reproducible on real screenshots; MoE not bit-for-bit).** Reuse-before-inventing for events + params; sheet parser returns `eventParams`; matched-event param hint injected; no screen-view events; matcher tightened (tab_clicked ≠ screen view); parameter casing preserved; row dedup. |
 | 2026-06-25 | Added Groq Llama-4-Scout as auto-fallback when Gemini returns 429; llama-3.2-90b-vision-preview decommissioned by Groq → updated to llama-4-scout-17b-16e-instruct |
 | 2026-06-25 | Migrated from Groq to Gemini 2.5 Flash as primary; added 3-step pipeline; cross-platform session events; 503 auto-retry |
 | 2026-06-08 | Removed old_event_name from output; added is_clicked/id normalisation |

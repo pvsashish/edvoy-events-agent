@@ -8,7 +8,7 @@
 | Video Upload + Frame Extraction | [UPLOAD_FLOW.md](upload/UPLOAD_FLOW.md) | complete | `public/app.jsx` (extractVideoFrames) |
 | GA4 / Amplitude Toggle | — | complete | `public/app.jsx`, `prompts/ga4.js`, `prompts/amplitude.js` |
 | Feature Context Input | — | complete | `public/app.jsx` |
-| AI Analysis (3-step pipeline) | [GEMINI_ANALYSIS_FLOW.md](gemini_analysis/GEMINI_ANALYSIS_FLOW.md) | complete | `api/analyze.js`, `prompts/*` — **Groq Llama-4-Scout only, temperature 0** (deterministic). Reuse-before-inventing, matched-event param hints, no screen-view events, dedup. Gemini removed 2026-06-30 |
+| AI Analysis (3-step pipeline) | [GEMINI_ANALYSIS_FLOW.md](gemini_analysis/GEMINI_ANALYSIS_FLOW.md) | complete | `api/analyze.js`, `prompts/*` — **Groq Llama-4-Scout only, temperature 0 + seed** (reproducible on real screenshots; MoE so not bit-for-bit). Reuse-before-inventing, matched-event param hints, no screen-view events, dedup. Gemini removed 2026-06-30 |
 | Cross-Platform Consistency | [GEMINI_ANALYSIS_FLOW.md](gemini_analysis/GEMINI_ANALYSIS_FLOW.md) | complete | `api/analyze.js` (sessionEvents), `public/app.jsx` (eventsPlatform state) |
 | Events Table Output | — | complete | `public/app.jsx` |
 | Inline Table Editing | — | complete | `public/app.jsx` (handleCellChange) |

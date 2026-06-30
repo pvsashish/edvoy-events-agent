@@ -97,8 +97,10 @@ async function groqGenerate({ system, user, images = [] }) {
       'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
       'Content-Type': 'application/json',
     },
-    // temperature 0 → deterministic: same screenshot returns the same spec every run.
-    body: JSON.stringify({ model: GROQ_MODEL, messages, temperature: 0 }),
+    // temperature 0 + fixed seed → maximally reproducible. Note: Llama-4-Scout is a
+    // Mixture-of-Experts model, so Groq is not bit-for-bit deterministic even so —
+    // this minimises run-to-run variance, it does not guarantee identical output.
+    body: JSON.stringify({ model: GROQ_MODEL, messages, temperature: 0, top_p: 1, seed: 42 }),
   });
 
   if (!res.ok) throw new Error(`Groq ${res.status}: ${await res.text()}`);
