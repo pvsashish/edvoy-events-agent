@@ -8,7 +8,7 @@
 | Video Upload + Frame Extraction | [UPLOAD_FLOW.md](upload/UPLOAD_FLOW.md) | complete | `public/app.jsx` (extractVideoFrames) |
 | GA4 / Amplitude Toggle | — | complete | `public/app.jsx`, `prompts/ga4.js`, `prompts/amplitude.js` |
 | Feature Context Input | — | complete | `public/app.jsx` |
-| AI Analysis (3-step pipeline) | [GEMINI_ANALYSIS_FLOW.md](gemini_analysis/GEMINI_ANALYSIS_FLOW.md) (legacy filename) | complete | `api/analyze.js`, `prompts/*` — **Anthropic Claude Sonnet 4.6 only, temperature 0**. Reuse-before-inventing, matched-event param hints, no screen-view events, dedup. `from`-as-minimum is **GA4-only** — Amplitude properties are optional and `from` is hard-filtered server-side. Returns `usage` (tokens + $ cost) → UI cost chip. Groq + Gemini removed 2026-06-30 |
+| AI Analysis (3-step pipeline) | [GEMINI_ANALYSIS_FLOW.md](gemini_analysis/GEMINI_ANALYSIS_FLOW.md) (legacy filename) | complete | `api/analyze.js`, `prompts/*` — **Anthropic Claude Sonnet 4.6 only, temperature 0**. Reuse-before-inventing, matched-event param hints, no screen-view events, dedup. `from`-as-minimum is **GA4-only** — Amplitude properties are optional and `from` is hard-filtered server-side. Returns `usage` (tokens + $ cost) → per-generate cost chip + cumulative API Usage card in sidebar (localStorage-persisted). Groq + Gemini removed 2026-06-30 |
 | Cross-Platform Consistency | [GEMINI_ANALYSIS_FLOW.md](gemini_analysis/GEMINI_ANALYSIS_FLOW.md) | complete | `api/analyze.js` (sessionEvents), `public/app.jsx` (eventsPlatform state) |
 | Events Table Output | — | complete | `public/app.jsx` |
 | Inline Table Editing | — | complete | `public/app.jsx` (handleCellChange) |

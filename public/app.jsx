@@ -817,6 +817,10 @@ function App() {
   const [error, setError]                  = useState('');
   const [eventsPlatform, setEventsPlatform] = useState(null); // which platform the current events table came from
   const [lastUsage, setLastUsage]          = useState(null); // token usage + cost ($) of the last generate
+  const [totalUsage, setTotalUsage]        = useState(() => { // cumulative usage across all generates (persisted)
+    try { return JSON.parse(localStorage.getItem('edvoy_total_usage')) || { input_tokens: 0, output_tokens: 0, cost_usd: 0, generations: 0 }; }
+    catch { return { input_tokens: 0, output_tokens: 0, cost_usd: 0, generations: 0 }; }
+  });
 
   // Interactions
   const [copiedState, setCopiedState]      = useState(''); // '', 'tsv', 'csv', 'json'
@@ -1109,6 +1113,18 @@ function App() {
       setEvents(newEvents);
       setEventsPlatform(platform);
       setLastUsage(data.usage || null);
+      if (data.usage) {
+        setTotalUsage(prev => {
+          const next = {
+            input_tokens:  prev.input_tokens  + (data.usage.input_tokens  || 0),
+            output_tokens: prev.output_tokens + (data.usage.output_tokens || 0),
+            cost_usd: Math.round((prev.cost_usd + (data.usage.cost_usd || 0)) * 10000) / 10000,
+            generations:   prev.generations + 1,
+          };
+          try { localStorage.setItem('edvoy_total_usage', JSON.stringify(next)); } catch {}
+          return next;
+        });
+      }
       setGeneratedAttachments([...attachments]);
       setGeneratedContext(featureContext);
 
@@ -1482,6 +1498,62 @@ function App() {
             Scout
           </button>
         </nav>
+
+        {/* Cumulative API usage / cost card (Anthropic Sonnet 4.6, persisted across sessions) */}
+        {(() => {
+          const totalTok = totalUsage.input_tokens + totalUsage.output_tokens;
+          const inPct = totalTok > 0 ? (totalUsage.input_tokens / totalTok) * 100 : 0;
+          const costStr = totalUsage.cost_usd < 0.0001 && totalUsage.cost_usd > 0
+            ? '<0.0001' : totalUsage.cost_usd.toFixed(4);
+          return (
+            <div style={{ padding: '0 12px 14px' }}>
+              <div style={{ background: '#fff', border: `1px solid ${T.border}`, borderRadius: 12, padding: 11, boxShadow: '0 1px 2px rgba(16,24,40,0.04)', fontFamily: 'var(--font-display)' }}>
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 9 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <div style={{ padding: 5, background: T.purple50, color: T.purple700, borderRadius: 7, display: 'flex' }}>
+                      {/* lucide "activity" */}
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: 11.5, fontWeight: 600, color: T.t700 }}>API Usage</h3>
+                      <p style={{ margin: 0, fontSize: 9.5, color: T.t400 }}>Cumulative · Sonnet 4.6</p>
+                    </div>
+                  </div>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 6px', background: T.surfaceAlt || '#F1F3F5', color: T.t600, fontSize: 9.5, fontWeight: 600, borderRadius: 6, whiteSpace: 'nowrap' }}>
+                    {totalUsage.generations} {totalUsage.generations === 1 ? 'generate' : 'generates'}
+                  </span>
+                </div>
+                {/* Cost */}
+                <div style={{ marginBottom: 7 }}>
+                  <span style={{ fontSize: 19, fontWeight: 700, color: T.t900 || T.t700, letterSpacing: '-0.01em' }}>${costStr}</span>
+                </div>
+                {/* Token-split bar (purple = input share of total tokens) */}
+                <div
+                  title={`${totalTok.toLocaleString()} tokens · ${totalUsage.input_tokens.toLocaleString()} in / ${totalUsage.output_tokens.toLocaleString()} out`}
+                  style={{ width: '100%', background: T.surfaceAlt || '#F1F3F5', height: 6, borderRadius: 99, overflow: 'hidden', cursor: 'help' }}>
+                  <div style={{ background: T.purple, height: '100%', borderRadius: 99, width: `${inPct}%`, transition: 'width 0.4s ease' }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 5 }}>
+                  <span style={{ fontSize: 9, color: T.t400, fontWeight: 500 }}>{totalTok.toLocaleString()} tokens</span>
+                  {totalUsage.generations > 0 && (
+                    <button
+                      onClick={() => {
+                        const fresh = { input_tokens: 0, output_tokens: 0, cost_usd: 0, generations: 0 };
+                        setTotalUsage(fresh);
+                        try { localStorage.setItem('edvoy_total_usage', JSON.stringify(fresh)); } catch {}
+                      }}
+                      title="Reset cumulative usage counter"
+                      style={{ background: 'none', border: 'none', color: T.t400, fontSize: 9, fontWeight: 600, cursor: 'pointer', padding: 0, fontFamily: 'var(--font-display)' }}
+                      onMouseEnter={e => { e.currentTarget.style.color = T.purple700; }}
+                      onMouseLeave={e => { e.currentTarget.style.color = T.t400; }}
+                    >Reset</button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Tracking Sheet Sync — per platform */}
         <div style={{ padding: '0 12px 16px' }}>
