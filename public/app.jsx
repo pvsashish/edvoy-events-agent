@@ -1857,7 +1857,7 @@ function App() {
                         <IconUpload size={22} color={dragging ? T.purple : T.t400} />
                         <div style={{ textAlign: 'center' }}>
                           <span style={{ fontSize: 12, fontWeight: 600, color: T.t700 }}>
-                            Drag &amp; drop flow assets, <span style={{ color: T.purple, textDecoration: 'underline' }}>browse files</span>, or paste <kbd style={{ fontFamily: T.fontMono || 'monospace', fontSize: 10, background: T.surfaceAlt || '#F1F3F5', border: `1px solid ${T.border}`, borderRadius: 4, padding: '1px 5px', color: T.t600 }}>⌘V</kbd>
+                            Drag &amp; drop, <span style={{ color: T.purple, textDecoration: 'underline' }}>browse files</span>, or paste <kbd style={{ fontFamily: T.fontMono || 'monospace', fontSize: 10, background: T.surfaceAlt || '#F1F3F5', border: `1px solid ${T.border}`, borderRadius: 4, padding: '1px 5px', color: T.t600 }}>⌘V</kbd>
                           </span>
                           <p style={{ fontSize: 10.5, color: T.t400, marginTop: 4 }}>
                             PNG, JPG, MP4, or MOV formats supported
