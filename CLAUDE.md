@@ -18,12 +18,12 @@ PM tool for Edvoy's analytics team. Lets PMs upload screenshots/videos of the Ed
 | Frontend | React 18 UMD + Babel standalone — **no build step**, edit `public/app.jsx` directly |
 | Backend | Vercel serverless (`api/*.js`) |
 | Database | Neon PostgreSQL (`DATABASE_URL` env var) |
-| AI | Gemini 2.5 Flash (`GEMINI_API_KEY`) primary → Groq Llama-4-Scout (`GROQ_API_KEY`) auto-fallback on 429 — 3-step pipeline: identify → match → generate |
+| AI | Groq Llama-4-Scout (`GROQ_API_KEY`), temperature 0, all steps — 3-step pipeline: identify → match → generate. Gemini removed 2026-06-30 |
 | Hosting | Vercel — `public/` is static root, `api/` is serverless |
 
 Key files:
 - `public/app.jsx` — entire React frontend (single file, ~2900 lines)
-- `api/analyze.js` — Gemini 3-step pipeline
+- `api/analyze.js` — Groq 3-step pipeline (temperature 0, deterministic)
 - `api/screens.js` — Scout CRUD (`GET/POST/DELETE /api/screens`)
 - `api/db.js` — Neon pool + table init
 - `prompts/` — `ga4.js`, `amplitude.js`, `identify.js`, `match.js`
@@ -50,8 +50,13 @@ Migrate images from Neon to **Vercel Blob** (or Cloudflare R2):
 
 This eliminates the transfer problem permanently. Neon only stores metadata (~1KB/record), images served from CDN.
 
-### AI fallback
-Gemini 2.5 Flash free tier = 20 RPD. When quota hit → auto-falls back to Groq Llama-4-Scout (1,000 RPD free). Both keys already in Vercel env. No user-facing error — transparent switch.
+### AI engine (Groq only)
+`meta-llama/llama-4-scout-17b-16e-instruct`, temperature 0 (deterministic — same screenshot → same spec), all 3 pipeline steps. 1,000 RPD free. `GROQ_API_KEY` in Vercel env. Gemini fully removed 2026-06-30 (was capped at 20 RPD).
+
+### Accuracy rules baked into the pipeline (2026-06-30)
+- **Reuse before inventing**: events/params reused verbatim (case-sensitive) from the synced sheet; new ones only when nothing matches. Sheet parser returns `eventParams` (event→its params) so matched events reuse exact params (e.g. `jump_to_clicked` → `options_name`).
+- **No screen-view events**: identify step never emits "screen viewed" interactions (no clean screen-view event in the sheet → don't mislabel/invent).
+- **Deterministic + de-duped**: temperature 0, one row per event+param, varying values → `dynamic value`.
 
 ### What's built and working
 - **Scout workspace redesign** — pushed to GitHub, will show correctly once DB accessible

@@ -73,6 +73,10 @@ export default async function handler(req, res) {
     const categories = new Set();
     const eventNames = new Set();
     const parameters = new Set();
+    // event_name → Set(parameter) so the generator can reuse an event's EXACT params
+    // (e.g. jump_to_clicked → options_name) instead of guessing a synonym.
+    const eventParamSets = {};
+    let lastName = '';
 
     for (let i = headerRow + 1; i < rows.length; i++) {
       const row = rows[i];
@@ -82,12 +86,24 @@ export default async function handler(req, res) {
       if (cat)   categories.add(cat);
       if (name)  eventNames.add(name);
       if (param) parameters.add(param);
+
+      // Spreadsheets leave the event-name cell blank on a param's continuation rows, so
+      // carry the last seen name forward to attach trailing params to the right event.
+      if (name) lastName = name;
+      if (lastName && param) {
+        (eventParamSets[lastName] ||= new Set()).add(param);
+      }
     }
+
+    const eventParams = Object.fromEntries(
+      Object.entries(eventParamSets).map(([k, v]) => [k, [...v]])
+    );
 
     return res.status(200).json({
       categories: [...categories],
       eventNames: [...eventNames],
       parameters: [...parameters],
+      eventParams,
       rowCount: rows.length - headerRow - 1,
       gid,
     });

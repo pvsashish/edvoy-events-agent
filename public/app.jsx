@@ -853,6 +853,7 @@ function App() {
   const resultsRef                         = useRef();
   const copiedTimeoutRef                   = useRef(null);
   const analyzeAbortRef                    = useRef(null);
+  const dropZoneRef                        = useRef(null);
 
   // Load Saved Specs on Init (DB with Local Storage fallback)
   useEffect(() => {
@@ -1016,6 +1017,39 @@ function App() {
     addFiles(e.dataTransfer.files);
   }, [addFiles]);
 
+  // Paste-to-upload: Cmd/Ctrl+V an image straight from the clipboard (e.g. an iPhone
+  // screenshot copied onto the Mac) without having to save the file first. Only acts on
+  // the generator tab and ignores non-image pastes, so text paste (e.g. into the feature
+  // context box) is untouched.
+  useEffect(() => {
+    const onPaste = e => {
+      if (activeTab !== 'generator' || loading || processing) return;
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const files = [];
+      for (const it of items) {
+        if (it.kind === 'file' && it.type.startsWith('image/')) {
+          const f = it.getAsFile();
+          if (f) files.push(f);
+        }
+      }
+      if (files.length) {
+        e.preventDefault();
+        addFiles(files);
+      }
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [addFiles, activeTab, loading, processing]);
+
+  // Keep a focused paste target ready on the generator tab so ⌘V works the moment you
+  // switch to the page — without first clicking empty space to give the document focus.
+  useEffect(() => {
+    if (activeTab === 'generator') {
+      dropZoneRef.current?.focus({ preventScroll: true });
+    }
+  }, [activeTab]);
+
   const analyze = async () => {
     if (!attachments.length) { setError('Add at least one screenshot or video.'); return; }
     
@@ -1147,6 +1181,14 @@ function App() {
       }
     }
     
+    setEvents(next);
+  };
+
+  // The Category / Event Name cells are visually merged across all parameter rows of one
+  // event. Editing a merged cell must update every row in that group so they stay merged.
+  const handleGroupFieldChange = (groupIndices, key, value) => {
+    const next = [...events];
+    groupIndices.forEach(i => { next[i] = { ...next[i], [key]: value }; });
     setEvents(next);
   };
 
@@ -1685,55 +1727,52 @@ function App() {
                     }} />
 
                     <button
-                      onClick={() => handlePlatformChange('ga4')}
+                      onClick={() => { if (!loading && !processing) handlePlatformChange('ga4'); }}
+                      disabled={loading || processing}
+                      title={(loading || processing) ? 'Locked while events are generating' : ''}
                       style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                         padding: '8px', border: 'none', borderRadius: 6,
                         background: 'transparent',
                         color: platform === 'ga4' ? T.purple700 : T.t500,
-                        fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                        fontSize: 12, fontWeight: 600,
+                        cursor: (loading || processing) ? 'not-allowed' : 'pointer',
+                        opacity: ((loading || processing) && platform !== 'ga4') ? 0.4 : 1,
                         transition: 'all 0.25s',
                         zIndex: 2,
                         position: 'relative',
                       }}
                     >
                       <IconGA4
-                        size={13} 
-                        style={{ borderRadius: 2, filter: platform === 'ga4' ? 'none' : 'grayscale(100%) opacity(0.6)' }} 
+                        size={13}
+                        style={{ borderRadius: 2, filter: platform === 'ga4' ? 'none' : 'grayscale(100%) opacity(0.6)' }}
                       />
                       <span className="desktop-only">Google Analytics 4</span>
                       <span className="mobile-only">GA4</span>
                     </button>
                     <button
-                      onClick={() => handlePlatformChange('amplitude')}
+                      onClick={() => { if (!loading && !processing) handlePlatformChange('amplitude'); }}
+                      disabled={loading || processing}
+                      title={(loading || processing) ? 'Locked while events are generating' : ''}
                       style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                         padding: '8px', border: 'none', borderRadius: 6,
                         background: 'transparent',
                         color: platform === 'amplitude' ? '#1E61F0' : T.t500,
-                        fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                        fontSize: 12, fontWeight: 600,
+                        cursor: (loading || processing) ? 'not-allowed' : 'pointer',
+                        opacity: ((loading || processing) && platform !== 'amplitude') ? 0.4 : 1,
                         transition: 'all 0.25s',
                         zIndex: 2,
                         position: 'relative',
                       }}
                     >
-                      <IconAmplitude 
-                        size={13} 
-                        style={{ borderRadius: 2, filter: platform === 'amplitude' ? 'none' : 'grayscale(100%) opacity(0.6)' }} 
+                      <IconAmplitude
+                        size={13}
+                        style={{ borderRadius: 2, filter: platform === 'amplitude' ? 'none' : 'grayscale(100%) opacity(0.6)' }}
                       />
                       Amplitude
                     </button>
-                  </div>
-                  <div style={{ fontSize: 11.5, color: T.t500, lineHeight: 1.4 }}>
-                    {platform === 'ga4' ? (
-                      <div>
-                        Generates clean <code style={codeTextStyle}>snake_case</code> schemas. Every event requires at least one parameter (defaults to <code style={codeTextStyle}>from</code>).
-                      </div>
-                    ) : (
-                      <div>
-                        Generates clean <code style={codeTextStyle}>snake_case</code> schemas conforming to Amplitude's taxonomy. Parameters are optional and can be left blank.
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -1761,6 +1800,8 @@ function App() {
                 <div className="card-premium-hover" style={cardStyle}>
                   <div style={cardLabel}>Screenshots / Video Flow</div>
                   <div
+                    ref={dropZoneRef}
+                    tabIndex={-1}
                     onDrop={e => {
                       if (processing || loading) { e.preventDefault(); return; }
                       onDrop(e);
@@ -1775,6 +1816,7 @@ function App() {
                     style={{
                       borderRadius: 10,
                       cursor: (processing || loading) ? 'not-allowed' : 'pointer',
+                      outline: 'none',
                       display: 'flex', flexDirection: 'column',
                       alignItems: 'center', justifyContent: 'center',
                       padding: '24px 16px', gap: 8,
@@ -1797,7 +1839,7 @@ function App() {
                         <IconUpload size={22} color={dragging ? T.purple : T.t400} />
                         <div style={{ textAlign: 'center' }}>
                           <span style={{ fontSize: 12, fontWeight: 600, color: T.t700 }}>
-                            Drag &amp; drop flow assets or <span style={{ color: T.purple, textDecoration: 'underline' }}>browse files</span>
+                            Drag &amp; drop flow assets, <span style={{ color: T.purple, textDecoration: 'underline' }}>browse files</span>, or paste <kbd style={{ fontFamily: T.fontMono || 'monospace', fontSize: 10, background: T.surfaceAlt || '#F1F3F5', border: `1px solid ${T.border}`, borderRadius: 4, padding: '1px 5px', color: T.t600 }}>⌘V</kbd>
                           </span>
                           <p style={{ fontSize: 10.5, color: T.t400, marginTop: 4 }}>
                             PNG, JPG, MP4, or MOV formats supported
@@ -2009,7 +2051,27 @@ function App() {
 
                         {loading ? <SkeletonRows /> : (
                           <tbody>
-                            {events.map((e, i) => (
+                            {(() => {
+                              // Vertically merge Category + Event Name across consecutive
+                              // rows of the same event so the table reads like the tracking
+                              // spreadsheet (one event, its parameters stacked beneath it).
+                              const meta = [];
+                              let gi = 0;
+                              while (gi < events.length) {
+                                const gName = events[gi].suggested_event_name || '';
+                                const gCat  = events[gi].category || '';
+                                let gj = gi + 1;
+                                while (gj < events.length
+                                  && (events[gj].suggested_event_name || '') === gName
+                                  && (events[gj].category || '') === gCat) gj++;
+                                const indices = [];
+                                for (let k = gi; k < gj; k++) indices.push(k);
+                                for (let k = gi; k < gj; k++) meta[k] = { isFirst: k === gi, span: gj - gi, indices };
+                                gi = gj;
+                              }
+                              return events.map((e, i) => {
+                                const grp = meta[i];
+                                return (
                               <tr
                                 key={e._rowId || i}
                                 className="row-enter-animated"
@@ -2019,11 +2081,12 @@ function App() {
                                   transition: 'background 0.12s',
                                 }}
                               >
-                                {/* Category Dropdown */}
-                                <td style={tdStyle}>
+                                {/* Category Dropdown — merged across the event's rows */}
+                                {grp.isFirst && (
+                                <td style={{ ...tdStyle, verticalAlign: 'middle', borderRight: `1px solid ${T.borderSoft}` }} rowSpan={grp.span}>
                                   <select
                                     value={e.category || ''}
-                                    onChange={el => handleCellChange(i, 'category', el.target.value)}
+                                    onChange={el => handleGroupFieldChange(grp.indices, 'category', el.target.value)}
                                     style={selectStyle(e.category)}
                                   >
                                     <option value="">Select Category</option>
@@ -2039,10 +2102,11 @@ function App() {
                                     })()}
                                   </select>
                                 </td>
+                                )}
 
-
-                                {/* Suggested Event Name */}
-                                <td style={{ ...tdStyle, position: 'relative' }}>
+                                {/* Suggested Event Name — merged across the event's rows */}
+                                {grp.isFirst && (
+                                <td style={{ ...tdStyle, position: 'relative', verticalAlign: 'middle', borderRight: `1px solid ${T.borderSoft}` }} rowSpan={grp.span}>
                                   {(() => {
                                     const eventErr = getValidationError(e.suggested_event_name, 'event', platform, e);
                                     const eventInputStyle = {
@@ -2056,7 +2120,7 @@ function App() {
                                         <input
                                           type="text"
                                           value={e.suggested_event_name || ''}
-                                          onChange={el => handleCellChange(i, 'suggested_event_name', el.target.value)}
+                                          onChange={el => handleGroupFieldChange(grp.indices, 'suggested_event_name', el.target.value)}
                                           className={eventErr ? "error-shake-field" : ""}
                                           style={eventInputStyle}
                                           placeholder="event_name"
@@ -2081,6 +2145,7 @@ function App() {
                                     );
                                   })()}
                                 </td>
+                                )}
 
                                 {/* Parameter / Property */}
                                 <td style={{ ...tdStyle, position: 'relative' }}>
@@ -2152,7 +2217,9 @@ function App() {
                                   </button>
                                 </td>
                               </tr>
-                            ))}
+                                );
+                              });
+                            })()}
                           </tbody>
                         )}
                       </table>

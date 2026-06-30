@@ -1,11 +1,8 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { buildGA4Prompt } from '../prompts/ga4.js';
 import { buildAMPPrompt } from '../prompts/amplitude.js';
 import { buildIdentifyPrompt } from '../prompts/identify.js';
 import { buildMatchPrompt } from '../prompts/match.js';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const MODEL = 'gemini-2.5-flash';
 const GROQ_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
 
 export default async function handler(req, res) {
@@ -29,7 +26,7 @@ export default async function handler(req, res) {
     // Step 2: Match — do any of those interactions already have event names?
     const resolvedNames = await matchInteractions(interactions, sheetData, crossData, sessionEvents);
 
-    // Step 3: Generate — produce the full spec with pre-matched names as hard constraints
+    // Step 3: Generate — produce the full spec with pre-matched names + params as hard constraints
     let events = await generateSpec(images, platform, featureContext, interactions, resolvedNames, sheetData, crossData);
 
     if (Array.isArray(events)) {
@@ -37,20 +34,39 @@ export default async function handler(req, res) {
         if (e && typeof e === 'object') {
           delete e.old_event_name;
 
-          const param = (e.parameter || '').trim().toLowerCase();
+          // Preserve the parameter's original casing in the output; only lowercase a copy
+          // for the rule checks below (event/param names are case-sensitive — see SESSION).
+          const rawParam = (e.parameter || '').trim();
+          const param = rawParam.toLowerCase();
           let val = (e.sample_value || '').trim();
 
-          if (param === 'is_clicked') {
+          // Dimension params vary per firing → always 'dynamic value', never a literal.
+          const isDynamicParam = /(_id|_name|_category|_sub_category|_term|_code)$/.test(param)
+            || ['from', 'name', 'title', 'option_selected', 'options_name', 'search_term', 'university'].includes(param);
+
+          if (param === 'is_clicked' || param.startsWith('is_') || param.startsWith('has_')) {
             val = (val.toLowerCase() === 'false') ? 'false' : 'true';
-          } else if (param.endsWith('_id')) {
+          } else if (isDynamicParam) {
             val = 'dynamic value';
           } else if (val.length > 60) {
             val = val.slice(0, 55).trimEnd() + '…';
           }
 
-          return { ...e, parameter: param, sample_value: val };
+          return { ...e, parameter: rawParam, sample_value: val };
         }
         return e;
+      });
+
+      // Kill row-explosion: one row per (event_name + parameter). Weak models sometimes
+      // emit a row per possible value of the same param — those collapse to identical
+      // rows after normalisation, so we drop the duplicates here. (Case-insensitive key.)
+      const seen = new Set();
+      events = events.filter(e => {
+        if (!e || typeof e !== 'object') return true;
+        const key = `${(e.suggested_event_name || '').trim().toLowerCase()}|${(e.parameter || '').trim().toLowerCase()}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
       });
     }
 
@@ -63,31 +79,9 @@ export default async function handler(req, res) {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function is429(err) {
-  const msg = err.message || '';
-  return msg.includes('429') || msg.includes('quota') || msg.includes('Too Many Requests') || msg.includes('RESOURCE_EXHAUSTED');
-}
-
-async function withRetry(fn, retries = 2, delayMs = 3000) {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      return await fn();
-    } catch (err) {
-      const is503 = err.message?.includes('503') || err.message?.includes('Service Unavailable') || err.message?.includes('overloaded');
-      if (is503 && attempt < retries) {
-        console.warn(`Gemini 503, retrying in ${delayMs}ms (attempt ${attempt + 1}/${retries})...`);
-        await new Promise(r => setTimeout(r, delayMs));
-        delayMs *= 2;
-      } else {
-        throw err;
-      }
-    }
-  }
-}
-
-// Groq OpenAI-compatible fallback (vision + text)
+// Groq OpenAI-compatible chat completion (vision + text). Single model for the whole pipeline.
 async function groqGenerate({ system, user, images = [] }) {
-  if (!process.env.GROQ_API_KEY) throw new Error('GROQ_API_KEY not set — cannot fall back');
+  if (!process.env.GROQ_API_KEY) throw new Error('GROQ_API_KEY not set');
 
   const userContent = images.length
     ? [...images.map(img => ({ type: 'image_url', image_url: { url: img } })), { type: 'text', text: user }]
@@ -103,7 +97,8 @@ async function groqGenerate({ system, user, images = [] }) {
       'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ model: GROQ_MODEL, messages, temperature: 0.2 }),
+    // temperature 0 → deterministic: same screenshot returns the same spec every run.
+    body: JSON.stringify({ model: GROQ_MODEL, messages, temperature: 0 }),
   });
 
   if (!res.ok) throw new Error(`Groq ${res.status}: ${await res.text()}`);
@@ -111,17 +106,22 @@ async function groqGenerate({ system, user, images = [] }) {
   return data.choices[0].message.content;
 }
 
-function parseDataUrl(dataUrl) {
-  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-  if (!match) throw new Error('Invalid image data URL');
-  return { mimeType: match[1], data: match[2] };
-}
-
-function imageParts(images) {
-  return images.map(img => {
-    const { mimeType, data } = parseDataUrl(img);
-    return { inlineData: { mimeType, data } };
-  });
+// Retry transient Groq failures (rate limit / overloaded).
+async function groqWithRetry(args, retries = 2, delayMs = 3000) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await groqGenerate(args);
+    } catch (err) {
+      const msg = err.message || '';
+      const transient = /\b(429|500|502|503)\b/.test(msg) || /rate.?limit|overloaded|Too Many Requests/i.test(msg);
+      if (transient && attempt < retries) {
+        await new Promise(r => setTimeout(r, delayMs));
+        delayMs *= 2;
+      } else {
+        throw err;
+      }
+    }
+  }
 }
 
 function parseJson(raw, fallback) {
@@ -138,26 +138,11 @@ function parseJson(raw, fallback) {
 async function identifyInteractions(images, featureContext) {
   const prompt = buildIdentifyPrompt(featureContext);
   try {
-    const raw = await withRetry(async () => {
-      const model = genAI.getGenerativeModel({ model: MODEL });
-      const result = await model.generateContent([prompt, ...imageParts(images)]);
-      return result.response.text();
-    });
+    const raw = await groqWithRetry({ user: prompt, images });
     const parsed = parseJson(raw, []);
     return Array.isArray(parsed) ? parsed : [];
   } catch (err) {
-    if (is429(err)) {
-      console.warn('Gemini quota hit on Step 1 — falling back to Groq');
-      try {
-        const raw = await groqGenerate({ user: prompt, images });
-        const parsed = parseJson(raw, []);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch (groqErr) {
-        console.error('Groq Step 1 also failed:', groqErr.message);
-      }
-    } else {
-      console.error('Identify step failed, skipping:', err.message);
-    }
+    console.error('Identify step failed, skipping:', err.message);
     return [];
   }
 }
@@ -178,31 +163,13 @@ async function matchInteractions(interactions, sheetData, crossData, sessionEven
 
   const prompt = buildMatchPrompt(interactions, unique);
 
-  const toResult = (raw) => {
+  try {
+    const raw = await groqWithRetry({ user: prompt });
     const parsed = parseJson(raw, {});
     if (typeof parsed !== 'object' || Array.isArray(parsed)) return {};
     return Object.fromEntries(Object.entries(parsed).filter(([, v]) => v && typeof v === 'string'));
-  };
-
-  try {
-    const raw = await withRetry(async () => {
-      const model = genAI.getGenerativeModel({ model: MODEL });
-      const result = await model.generateContent(prompt);
-      return result.response.text();
-    });
-    return toResult(raw);
   } catch (err) {
-    if (is429(err)) {
-      console.warn('Gemini quota hit on Step 2 — falling back to Groq');
-      try {
-        const raw = await groqGenerate({ user: prompt });
-        return toResult(raw);
-      } catch (groqErr) {
-        console.error('Groq Step 2 also failed:', groqErr.message);
-      }
-    } else {
-      console.error('Match step failed, skipping:', err.message);
-    }
+    console.error('Match step failed, skipping:', err.message);
     return {};
   }
 }
@@ -219,23 +186,25 @@ async function generateSpec(images, platform, featureContext, interactions, reso
     ? `Identified interactions on this screen:\n${interactions.map((x, i) => `${i + 1}. ${x}`).join('\n')}\n\n`
     : '';
 
-  const userText = `${contextText}${interactionContext}Generate the complete event tracking spec for this screen.`;
+  // For events that already exist in the tracking sheet, inject their EXACT parameter
+  // names so the model reuses them verbatim (e.g. jump_to_clicked → options_name) instead
+  // of guessing a synonym like "from". Sheet (primary) overrides cross-platform reference.
+  const eventParamMap = { ...(crossData?.eventParams || {}), ...(sheetData?.eventParams || {}) };
+  const matchedEvents = [...new Set(Object.values(resolvedNames))];
+  const paramHintLines = matchedEvents
+    .map(ev => {
+      const ps = eventParamMap[ev];
+      return (ps && ps.length) ? `- ${ev}: ${ps.join(', ')}` : null;
+    })
+    .filter(Boolean);
+  const paramHint = paramHintLines.length
+    ? `KNOWN PARAMETERS FOR MATCHED EVENTS — MANDATORY. These events already exist in the tracking sheet with these EXACT parameters. Use exactly these parameter names, copied verbatim and case-sensitive. Do NOT substitute a synonym (e.g. do NOT write "from" where the sheet uses "options_name"):\n${paramHintLines.join('\n')}\n\n`
+    : '';
 
-  try {
-    const model = genAI.getGenerativeModel({ model: MODEL, systemInstruction: systemPrompt });
-    const result = await withRetry(() => model.generateContent([userText, ...imageParts(images)]));
-    const raw = result.response.text();
-    const parsed = parseJson(raw, null);
-    if (!parsed) throw new Error('Failed to parse event specifications from the AI response. Please try again.');
-    return parsed;
-  } catch (err) {
-    if (is429(err)) {
-      console.warn('Gemini quota hit on Step 3 — falling back to Groq');
-      const raw = await groqGenerate({ system: systemPrompt, user: userText, images });
-      const parsed = parseJson(raw, null);
-      if (!parsed) throw new Error('Failed to parse event specifications from the AI response. Please try again.');
-      return parsed;
-    }
-    throw err;
-  }
+  const userText = `${contextText}${interactionContext}${paramHint}Generate the complete event tracking spec for this screen.`;
+
+  const raw = await groqWithRetry({ system: systemPrompt, user: userText, images });
+  const parsed = parseJson(raw, null);
+  if (!parsed) throw new Error('Failed to parse event specifications from the AI response. Please try again.');
+  return parsed;
 }

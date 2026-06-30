@@ -1,6 +1,6 @@
 # Architecture — Edvoy Events Agent
 
-**Last updated:** 2026-06-25 (Gemini → Groq auto-fallback on 429)
+**Last updated:** 2026-06-30 (Groq-only; Gemini removed; accuracy + UX overhaul)
 
 ## What It Does
 PM tool for Edvoy's analytics team. Upload screenshots or videos of the Edvoy web portal or mobile app, select GA4 or Amplitude, and receive correctly formatted analytics events + parameters matching the tracking sheet format (Category, Suggested Event Name, Parameter, Sample Value). Specs are persisted to Neon PostgreSQL with localStorage fallback. Also includes Scout — a visual event map that shows real screenshots with highlighted UI elements for each tracked event.
@@ -13,7 +13,7 @@ Edvoy product managers and analytics team.
 |-------|------|
 | Frontend | React 18 (UMD via CDN + Babel standalone — no build step) |
 | Backend | Vercel serverless functions (Node.js ESM) |
-| AI | Gemini 2.5 Flash (primary) → Groq Llama-4-Scout (auto-fallback on 429) — 3-step pipeline: identify → match → generate |
+| AI | Groq Llama-4-Scout (`meta-llama/llama-4-scout-17b-16e-instruct`), temperature 0 — 3-step pipeline: identify → match → generate |
 | Database | Neon PostgreSQL (pooled via `pg` — `DATABASE_URL`) |
 | Hosting | Vercel (static from `public/` + serverless from `api/`) |
 
@@ -21,7 +21,7 @@ Edvoy product managers and analytics team.
 ```
 events-agent/
 ├── api/
-│   ├── analyze.js       ← POST /api/analyze — 3-step pipeline (Gemini primary, Groq fallback), normalises events JSON
+│   ├── analyze.js       ← POST /api/analyze — Groq 3-step pipeline (temperature 0), normalises events JSON, injects matched-event params
 │   ├── db.js            ← Neon PostgreSQL pool + self-initialising table setup
 │   ├── history.js       ← GET/POST/DELETE /api/history — specs history CRUD
 │   ├── screens.js       ← GET/POST/DELETE /api/screens — Scout event map CRUD
@@ -40,7 +40,7 @@ events-agent/
 ├── .claude/
 │   └── launch.json      ← Preview server config (port 3333, vercel dev)
 ├── vercel.json          ← outputDirectory: public, /api/* rewrites, 30s fn timeout
-├── .env                 ← Local only (gitignored) — GEMINI_API_KEY, GROQ_API_KEY, DATABASE_URL
+├── .env                 ← Local only (gitignored) — GROQ_API_KEY, DATABASE_URL
 ├── .gitignore
 └── package.json
 ```
@@ -48,8 +48,7 @@ events-agent/
 ## Environment Variables
 | Variable | Where | Purpose |
 |----------|-------|---------|
-| `GEMINI_API_KEY` | `.env` + Vercel env | Google Gemini API auth (primary AI) |
-| `GROQ_API_KEY` | `.env` + Vercel env | Groq fallback auth — auto-used when Gemini returns 429 |
+| `GROQ_API_KEY` | `.env` + Vercel env | Groq API auth — the sole AI provider (all 3 pipeline steps) |
 | `DATABASE_URL` | `.env` + Vercel env | Neon PostgreSQL connection string |
 
 ## Database Schema
@@ -86,10 +85,10 @@ Table: `edvoy_specs_history`
 - **Base64 images**: Screenshots converted client-side to data URLs, stored in Neon as TEXT. ⚠️ This causes Neon free-tier data transfer overruns — planned migration to Vercel Blob (store URL in Neon instead). See SCOUT_FLOW.md.
 - **Video frame extraction**: Canvas API extracts 3 JPEG frames client-side; Groq receives images only.
 - **`outputDirectory: public`**: Vercel serves `public/` as static root — `index.html` resolves at `/`.
-- **Gemini 2.5 Flash**: primary AI. Free tier capped at 20 RPD. Uses `systemInstruction` param (not user-turn) and `inlineData` image format (not `image_url`). `gemini-2.5-pro` has 0 free quota.
-- **Groq Llama-4-Scout (`meta-llama/llama-4-scout-17b-16e-instruct`)**: auto-fallback. Triggered when Gemini returns 429/RESOURCE_EXHAUSTED. 1,000 RPD free, OpenAI-compatible API, plain `fetch` (no SDK). Images sent as `image_url` data URLs.
+- **Groq Llama-4-Scout (`meta-llama/llama-4-scout-17b-16e-instruct`)**: sole AI provider, all 3 steps. 1,000 RPD free, OpenAI-compatible API, plain `fetch` (no SDK). `system` role message + images as `image_url` data URLs. **temperature 0** → deterministic. `groqWithRetry` retries transient 429/5xx. Gemini removed 2026-06-30 (20 RPD quota was the blocker).
+- **Reuse before inventing**: matched events/params reused verbatim + case-sensitive from the synced sheet. `api/sheets.js` returns `eventParams` (event→its params); `generateSpec` injects a matched-event param hint (e.g. `jump_to_clicked` → `options_name`) so the model doesn't guess a synonym. Screen-view interactions are not emitted (no clean sheet event for them).
 - **JSON parse fallback**: Regex extracts `[…]` from model response in case it wraps in markdown fences.
-- **Sample value normalisation**: `is_clicked` params → `true/false`; `*_id` params → `dynamic value` (enforced in `api/analyze.js`).
+- **Sample value normalisation**: `is_*`/`has_*` → `true/false`; dimension params (`*_id`, `*_name`, `*_category`, `from`, `options_name`, …) → `dynamic value`; parameter casing preserved; rows de-duped one-per event+param (all in `api/analyze.js`).
 - **DB-less fallback**: `api/history.js` returns empty array (not an error) when `DATABASE_URL` is unset; frontend falls back to localStorage.
 - **Neon SSL retry**: `api/screens.js` wraps all `pool.query` calls in `queryWithRetry` (2 retries, 3s delay) to handle intermittent Neon SSL `bad record mac` errors. Pool is capped at `max: 1` connection.
 - **Scout ingestion**: source of truth is PM-provided screenshot folders (one PNG per event, named `<event_name>.png`). `<event_name> - 2.png` = same event firing in a second place; full filename kept as `event_name`. bbox is always `[0,0,0,0]` for manually captured shots.

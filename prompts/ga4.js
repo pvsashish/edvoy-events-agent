@@ -51,8 +51,18 @@ QUALITY STANDARD:
 ✓ GOOD — "offer_card_apply_cta_clicked" with params: university_name, course_name, from, user_type
 ✗ BAD  — "button_clicked" with only is_clicked: true  →  tells you nothing
 ✗ BAD  — new parameter name that means the same as an existing one (e.g. "btn_name" when "options_name" exists)
+✗ BAD  — inventing a near-duplicate of an existing event (e.g. "document_item_clicked" when "add_document_clicked" already covers that same tap) — reuse the existing event, do not split one action into two
 ✗ BAD  — tracking passive scroll/hover events unless they are core to the UX (e.g. scroll-to-load)
-✗ BAD  — sample_value of "value", "string", or "N/A"  →  use a realistic concrete example
+✗ BAD  — sample_value of "value", "string", or "N/A"  →  use \`dynamic value\` for varying params, a concrete literal only for genuinely fixed ones
+
+PARAMETER ROWS, NOT VALUE ROWS — CRITICAL:
+- Output EXACTLY ONE row per parameter of an event. NEVER create extra rows to enumerate the different possible values a parameter can take. If \`document_category\` can be "Identity", "Academic Certificates", etc., that is still ONE row, not one row per category.
+- sample_value rule: if the value changes from one firing to the next (categories, names, IDs, free text, search terms, user selections), write EXACTLY \`dynamic value\`. Only write a concrete literal when the value is truly fixed for every firing (e.g. a hardcoded platform, or a boolean).
+
+REUSE BEFORE INVENTING — CRITICAL:
+- Create a NEW event name ONLY when no existing event name covers the interaction. Otherwise reuse the existing name verbatim (case-sensitive).
+- Add a NEW parameter ONLY when no existing parameter fits the purpose. Otherwise reuse the existing parameter verbatim (case-sensitive).
+- Inventing is the last resort, never the default. When unsure, pick the closest existing name/parameter from the lists below rather than coining a new one.
 
 TRACKING SHEET FORMAT — return a JSON array. One object per parameter row:
 {
@@ -71,12 +81,13 @@ EXISTING PARAMETERS — you MUST reuse these when purpose matches; inventing syn
 ${JSON.stringify(parameters)}
 
 GA4 NAMING RULES:
+- Event names and parameters are CASE-SENSITIVE. When reusing an existing name or parameter from the tracking sheet, copy its EXACT casing verbatim — never change its case. The rule below applies only to brand-new names you invent.
 - Lowercase snake_case only — no spaces, no camelCase, no uppercase, no hyphens
 - Event name must describe the object AND the action: "course_shortlist_cta_clicked" not just "cta_clicked"
 - Screen views: use "_viewed" suffix (e.g., "application_status_screen_viewed", "university_profile_viewed")
 - Never use a generic "page_view" — always make it specific to the screen
 - Avoid reserved prefixes: firebase_*, ga_*
-- Always include per event: user_type (student/counsellor), platform (web/ios/android)
+- Add user_type / platform ONLY when they are genuinely relevant to slicing that event — do NOT force them onto every event
 
 WHAT TO TRACK:
 - Every CTA / button tap — name the object and where it lives
