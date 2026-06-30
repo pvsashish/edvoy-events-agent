@@ -816,7 +816,8 @@ function App() {
   const [processing, setProcessing]        = useState(false);
   const [error, setError]                  = useState('');
   const [eventsPlatform, setEventsPlatform] = useState(null); // which platform the current events table came from
-  
+  const [lastUsage, setLastUsage]          = useState(null); // token usage + cost ($) of the last generate
+
   // Interactions
   const [copiedState, setCopiedState]      = useState(''); // '', 'tsv', 'csv', 'json'
   const [exportError, setExportError]      = useState('');
@@ -1107,6 +1108,7 @@ function App() {
       }));
       setEvents(newEvents);
       setEventsPlatform(platform);
+      setLastUsage(data.usage || null);
       setGeneratedAttachments([...attachments]);
       setGeneratedContext(featureContext);
 
@@ -2012,6 +2014,20 @@ function App() {
                               {platform === 'ga4' ? 'GA4 event structure' : 'Amplitude event structure'}
                             </span>
                           </div>
+                          {!loading && lastUsage && (
+                            <span
+                              title={`${lastUsage.input_tokens.toLocaleString()} input + ${lastUsage.output_tokens.toLocaleString()} output tokens across ${lastUsage.calls} API calls (Claude Sonnet 4.6)`}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 4,
+                                background: T.surfaceAlt || '#F1F3F5',
+                                border: `1px solid ${T.border}`,
+                                padding: '2px 9px', borderRadius: 99,
+                                fontSize: 11, fontWeight: 600, color: T.t600,
+                                fontFamily: T.fontMono || 'monospace', cursor: 'help',
+                              }}>
+                              ${lastUsage.cost_usd < 0.0001 ? '<0.0001' : lastUsage.cost_usd.toFixed(4)}
+                            </span>
+                          )}
                         </div>
                       </div>
                       

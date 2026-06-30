@@ -4,7 +4,7 @@
 **Status:** active
 
 ## What It Does
-Accepts image files (PNG/JPG/WEBP) and video files (MP4/MOV/AVI/any format) via drag-and-drop or file browser. Images are read as base64 data URLs. Videos are processed client-side — 3 JPEG frames extracted via Canvas API — so Groq only ever receives image data.
+Accepts image files (PNG/JPG/WEBP) and video files (MP4/MOV/AVI/any format) via drag-and-drop or file browser. Images are read as base64 data URLs. Videos are processed client-side — 3 JPEG frames extracted via Canvas API — so the model only ever receives image data.
 
 ## Entry Points
 - File: `public/app.jsx` — `addFiles()` function
@@ -45,7 +45,7 @@ Accepts image files (PNG/JPG/WEBP) and video files (MP4/MOV/AVI/any format) via 
 - Stale error cleared on next valid file add
 
 ## Architecture Decisions
-- **Client-side frame extraction**: Groq API receives only images. No server-side video processing needed — keeps API simple and avoids large payload uploads.
+- **Client-side frame extraction**: the AI receives only images. No server-side video processing needed — keeps API simple and avoids large payload uploads.
 - **3 frames**: Balances coverage vs. payload size. Frame timestamps at 25%, 50%, 75% of duration.
 - **JPEG 0.85 quality**: Good fidelity for UI screenshots, keeps base64 size reasonable.
 

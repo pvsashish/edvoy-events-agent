@@ -18,12 +18,12 @@ PM tool for Edvoy's analytics team. Lets PMs upload screenshots/videos of the Ed
 | Frontend | React 18 UMD + Babel standalone — **no build step**, edit `public/app.jsx` directly |
 | Backend | Vercel serverless (`api/*.js`) |
 | Database | Neon PostgreSQL (`DATABASE_URL` env var) |
-| AI | Groq Llama-4-Scout (`GROQ_API_KEY`), temperature 0, all steps — 3-step pipeline: identify → match → generate. Gemini removed 2026-06-30 |
+| AI | Anthropic Claude Sonnet 4.6 (`ANTHROPIC_API_KEY`), temperature 0, all steps — 3-step pipeline: identify → match → generate. Groq + Gemini removed 2026-06-30 |
 | Hosting | Vercel — `public/` is static root, `api/` is serverless |
 
 Key files:
 - `public/app.jsx` — entire React frontend (single file, ~2900 lines)
-- `api/analyze.js` — Groq 3-step pipeline (temperature 0, deterministic)
+- `api/analyze.js` — Anthropic Sonnet 4.6 3-step pipeline (temperature 0); returns `usage` (tokens + $ cost) per generate
 - `api/screens.js` — Scout CRUD (`GET/POST/DELETE /api/screens`)
 - `api/db.js` — Neon pool + table init
 - `prompts/` — `ga4.js`, `amplitude.js`, `identify.js`, `match.js`
@@ -50,9 +50,10 @@ Migrate images from Neon to **Vercel Blob** (or Cloudflare R2):
 
 This eliminates the transfer problem permanently. Neon only stores metadata (~1KB/record), images served from CDN.
 
-### AI engine (Groq only)
-`meta-llama/llama-4-scout-17b-16e-instruct`, temperature 0 + `seed: 42` + `top_p: 1`, all 3 pipeline steps. 1,000 RPD free. `GROQ_API_KEY` in Vercel env. Gemini fully removed 2026-06-30 (was capped at 20 RPD).
-**Reproducibility:** Scout is a Mixture-of-Experts model, so output is NOT bit-for-bit deterministic. In practice a real screenshot gives the same spec run-to-run (verified); only contentless/degenerate images vary noticeably.
+### AI engine (Anthropic only)
+`claude-sonnet-4-6`, temperature 0, all 3 pipeline steps via Messages API (`https://api.anthropic.com/v1/messages`, header `anthropic-version: 2023-06-01`). `ANTHROPIC_API_KEY` in Vercel env (prod + preview) and local `.env`. Paid per token — $3/M input, $15/M output. Groq + Gemini fully removed 2026-06-30.
+**Cost visibility:** `api/analyze.js` sums token usage across all 3 calls and returns `usage: { input_tokens, output_tokens, cost_usd, calls }`. UI shows a `$cost` chip next to the results header (hover → token breakdown). Per-generate, not cumulative.
+**Why switched:** Groq Llama-4-Scout (MoE) was weaker + not bit-for-bit deterministic; Sonnet follows the sheet rules much more closely. Trade-off: switching surfaced the `from`-on-Amplitude bug (Sonnet obeyed a stale `from` in the default param list) — fixed by removing it from `prompts/amplitude.js` DEFAULT_PARAMETERS + hard server-side filter in `api/analyze.js`.
 
 ### Accuracy rules baked into the pipeline (2026-06-30)
 - **Reuse before inventing**: events/params reused verbatim (case-sensitive) from the synced sheet; new ones only when nothing matches. Sheet parser returns `eventParams` (event→its params) so matched events reuse exact params (e.g. `jump_to_clicked` → `options_name`).

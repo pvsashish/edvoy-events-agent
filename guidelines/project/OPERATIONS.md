@@ -1,19 +1,19 @@
 # Operations — Edvoy Events Agent
 
-**Last updated:** 2026-06-08
+**Last updated:** 2026-06-30 (AI provider → Anthropic Sonnet 4.6)
 
 ## Run Locally
 ```bash
 cd /Users/ashish/Documents/events-agent
 npm install
-# Requires .env with GROQ_API_KEY and DATABASE_URL
+# Requires .env with ANTHROPIC_API_KEY and DATABASE_URL
 npx vercel@latest dev --listen 3333
 # App at http://localhost:3333
 ```
 
 `.env` minimum:
 ```
-GROQ_API_KEY=gsk_...
+ANTHROPIC_API_KEY=sk-ant-...
 DATABASE_URL=postgresql://...  # Neon connection string
 ```
 
@@ -28,7 +28,7 @@ npx vercel@latest --prod --yes
 
 ## Add / Update Env Vars on Vercel
 ```bash
-echo "VALUE" | npx vercel@latest env add GROQ_API_KEY production
+echo "VALUE" | npx vercel@latest env add ANTHROPIC_API_KEY production
 echo "VALUE" | npx vercel@latest env add DATABASE_URL production
 ```
 
@@ -48,11 +48,13 @@ npx vercel@latest dev --listen 3333
 ## Troubleshooting
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `AI analysis failed` | Bad/missing `GROQ_API_KEY` | Check `.env` and Vercel env vars |
+| `AI analysis failed` | Bad/missing `ANTHROPIC_API_KEY` | Check `.env` and Vercel env vars |
+| `Anthropic 401` | Invalid/revoked API key | Regenerate at console.anthropic.com, update `.env` + Vercel |
+| `Anthropic 429` | Rate limit hit | `anthropicWithRetry` backs off; if persistent, slow down or check usage tier |
 | Events array empty | Model returned non-JSON | Retry; check prompt in `prompts/ga4.js` or `prompts/amplitude.js` |
 | Image too large | Base64 payload >4MB | Compress screenshot before upload |
 | `Method not allowed` on `/api/analyze` | GET instead of POST | Always POST |
 | History tab shows empty / localStorage fallback | `DATABASE_URL` missing | Add Neon connection string to env |
 | `Database operation failed` | Neon pool exhausted or cold start | Retry once; check Neon dashboard |
 | 404 on `/` in production | `outputDirectory` misconfigured | Verify `vercel.json` has `"outputDirectory": "public"` |
-| Model decommissioned error | Groq retired the model | Update model ID in `api/analyze.js` — check console.groq.com/docs/deprecations |
+| Model not found / 404 | Model ID changed/retired | Update `ANTHROPIC_MODEL` in `api/analyze.js` — check docs.claude.com model list |

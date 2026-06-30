@@ -1,6 +1,6 @@
 const DEFAULT_CATEGORIES = ["App Update Screen", "Course Page", "Genie Banner", "Login or Sign-up Flow", "Meet", "Onboarding Screen", "Settings", "Stand-by Flow"];
 
-const DEFAULT_PARAMETERS = ["cancellation_reason", "city_of_residence", "country_name", "course_name", "discussion_reason", "email", "email_or_continue_with_google", "express", "from", "genie", "image_url", "intake_month", "intake_year", "is_enabled", "name", "nationality", "option_selected", "preferred_destination", "preferred_study_level", "provider", "receive_marketing_messages", "referral_code", "screen", "session_date_and_time", "setting_type", "title", "topics_selected", "update_type", "values"];
+const DEFAULT_PARAMETERS = ["cancellation_reason", "city_of_residence", "country_name", "course_name", "discussion_reason", "email", "email_or_continue_with_google", "express", "genie", "image_url", "intake_month", "intake_year", "is_enabled", "name", "nationality", "option_selected", "preferred_destination", "preferred_study_level", "provider", "receive_marketing_messages", "referral_code", "screen", "session_date_and_time", "setting_type", "title", "topics_selected", "update_type", "values"];
 
 export function buildAMPPrompt(sheetData = null, portalData = null, resolvedNames = {}) {
   const categories = sheetData?.categories?.length > 0

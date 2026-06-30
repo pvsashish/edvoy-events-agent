@@ -4,7 +4,7 @@
 
 | File | Feature | Notes |
 |------|---------|-------|
-| `api/analyze.js` | Groq Vision Analysis, Sample Value Normalisation | POST handler — validates input, calls Groq, normalises events, returns JSON |
+| `api/analyze.js` | Anthropic Vision Analysis, Sample Value Normalisation, Cost Usage | POST handler — validates input, calls Anthropic Sonnet 4.6, normalises events, returns events + usage JSON |
 | `api/db.js` | Specs History (DB layer) | Neon PostgreSQL pool + self-initialising `edvoy_specs_history` table via singleton `initPromise` |
 | `api/history.js` | Specs History CRUD | GET/POST/DELETE handler — wraps db.js; returns `{ history: [], warning }` if `DATABASE_URL` unset |
 | `public/app.jsx` | All UI features | Upload, video frame extraction, toggle, context, table, exports, history, naming converter, reset, mobile nav |
