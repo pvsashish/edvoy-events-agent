@@ -1,16 +1,16 @@
-# AI Analysis Flow (Groq)
+# AI Analysis Flow (Anthropic Claude Sonnet 4.6)
 
-**Last updated:** 2026-06-30 (Groq-only; Gemini removed)
+**Last updated:** 2026-06-30 (Anthropic Sonnet 4.6 only; Groq + Gemini removed; per-generate + cumulative cost tracking)
 **Status:** active
-_(Filename kept as GEMINI_ANALYSIS_FLOW.md to avoid breaking doc links; the pipeline is Groq-only as of 2026-06-30.)_
+_(Filename kept as GEMINI_ANALYSIS_FLOW.md to avoid breaking doc links; the pipeline is Anthropic-only as of 2026-06-30.)_
 
 ## What It Does
-3-step pipeline that receives base64 image(s) + platform + optional context from the frontend, runs them through Groq Llama-4-Scout (`meta-llama/llama-4-scout-17b-16e-instruct`, temperature 0 + seed 42), and returns a normalised JSON array of analytics events matching the tracking sheet format. Reproducible on real screenshots; Scout is a Mixture-of-Experts model so output is not bit-for-bit deterministic (contentless images vary).
+3-step pipeline that receives base64 image(s) + platform + optional context from the frontend, runs them through Anthropic Claude Sonnet 4.6 (`claude-sonnet-4-6`, temperature 0), and returns a normalised JSON array of analytics events matching the tracking sheet format, plus a `usage` object (token counts + $ cost across all 3 calls). Sonnet follows the sheet's reuse/casing rules much more closely than the prior Groq model.
 
 ## Entry Points
 - File: `api/analyze.js`
 - Route: `POST /api/analyze`
-- Required env var: `GROQ_API_KEY` (sole AI provider — Gemini removed 2026-06-30)
+- Required env var: `ANTHROPIC_API_KEY` (sole AI provider — Groq + Gemini removed 2026-06-30). Paid per token: $3/M input, $15/M output.
 
 ## The 3-Step Pipeline
 
@@ -49,14 +49,18 @@ When the user generates GA4 first and then switches to Amplitude (or vice versa)
 
 ## Response
 ```json
-{ "events": [{ "category": "Search", "suggested_event_name": "search_bar_clicked", "parameter": "search_term", "sample_value": "MSc Computer Science UK" }] }
+{
+  "events": [{ "category": "Search", "suggested_event_name": "search_bar_clicked", "parameter": "search_term", "sample_value": "MSc Computer Science UK" }],
+  "usage": { "input_tokens": 4521, "output_tokens": 380, "cost_usd": 0.0192, "calls": 3 }
+}
 ```
+`usage` is summed across all 3 Anthropic calls. Frontend (`app.jsx`) shows it two ways: a per-generate `$cost` chip in the results header, and a cumulative **API Usage** card in the sidebar (`totalUsage` state, persisted to `localStorage` key `edvoy_total_usage`, with a Reset).
 
 ## Error Handling
 - Non-POST → 405
 - Empty images / bad platform → 400 with descriptive message
 - JSON parse fully fails → 500 `"Failed to parse event specifications..."`
-- Transient Groq errors (429 / 5xx) → `groqWithRetry` retries up to 2× with exponential backoff (3s → 6s), then throws
+- Transient Anthropic errors (429 / 5xx / 529) → `anthropicWithRetry` retries up to 2× with exponential backoff (3s → 6s), then throws
 - Steps 1 & 2 fail silently to `[]` / `{}`; Step 3 failure throws 500
 
 ## Post-Processing (server-side)
@@ -66,10 +70,11 @@ Applied to every row before returning:
 - Dimension params (`*_id`, `*_name`, `*_category`, `*_sub_category`, `*_term`, `*_code`, `from`, `options_name`, `option_selected`, `name`, `title`, `search_term`, `university`) → forces `"dynamic value"`
 - Sample values over 60 chars → truncated with `…`
 - **Parameter casing preserved** (only lowercased internally for the rule checks — names are case-sensitive)
+- **Amplitude `from` filter**: when `platform === 'amplitude'`, any `from` parameter row is dropped server-side (`from`-as-minimum is GA4-only; on Amplitude it's filler). Hard guarantee regardless of what the model emits or what the synced sheet contains.
 - **Dedup**: one row per `event_name + parameter` (kills weak-model row-explosion)
 
 ## Architecture Decisions
-- **Groq Llama-4-Scout** (`meta-llama/llama-4-scout-17b-16e-instruct`): sole provider, all 3 steps. 1,000 RPD free. Plain `fetch` to `api.groq.com/openai/v1/chat/completions`. `system` role message + images as `image_url` data URLs. No SDK. **temperature 0 + `seed: 42` + `top_p: 1`** → reproducible on real screenshots (MoE → not bit-for-bit deterministic).
+- **Anthropic Claude Sonnet 4.6** (`claude-sonnet-4-6`): sole provider, all 3 steps. Plain `fetch` to `api.anthropic.com/v1/messages` (header `anthropic-version: 2023-06-01`, `x-api-key`). No SDK. `system` field + images as base64 `image` blocks (`dataUrlToImageBlock` parses the data URL's media type). **temperature 0, max_tokens 8192.** Each call returns `{text, usage}`; the handler sums `usage` across all 3 → response `usage` (tokens + $ cost).
 - **Reuse before inventing**: prompts + the matched-event param hint push the model to reuse the sheet's exact events/params (case-sensitive) before coining new ones.
 - **No screen-view events**: identify never emits "screen viewed" — there is no clean screen-view event in the sheet, so the tool doesn't mislabel (as a tab click) or invent one.
 - **Regex JSON fallback**: Model occasionally wraps JSON in markdown fences — regex extracts `[…]` or `{…}`.
@@ -78,6 +83,7 @@ Applied to every row before returning:
 ## Change Log
 | Date | Change |
 |------|--------|
+| 2026-06-30 | **Switched provider Groq → Anthropic Claude Sonnet 4.6** (`claude-sonnet-4-6`, temp 0, Messages API). Returns `usage` (tokens + $ cost) → per-generate cost chip + cumulative sidebar API Usage card. Fixed `from`-on-Amplitude filler (removed stale `from` from amplitude DEFAULT_PARAMETERS + hard server-side filter). Groq removed. |
 | 2026-06-30 | **Gemini fully removed — Groq-only, temperature 0 + seed 42 (reproducible on real screenshots; MoE not bit-for-bit).** Reuse-before-inventing for events + params; sheet parser returns `eventParams`; matched-event param hint injected; no screen-view events; matcher tightened (tab_clicked ≠ screen view); parameter casing preserved; row dedup. |
 | 2026-06-25 | Added Groq Llama-4-Scout as auto-fallback when Gemini returns 429; llama-3.2-90b-vision-preview decommissioned by Groq → updated to llama-4-scout-17b-16e-instruct |
 | 2026-06-25 | Migrated from Groq to Gemini 2.5 Flash as primary; added 3-step pipeline; cross-platform session events; 503 auto-retry |

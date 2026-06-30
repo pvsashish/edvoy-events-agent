@@ -1695,7 +1695,7 @@ function App() {
                   background: '#10B981',
                   display: 'inline-block',
                 }}
-                title="AI Agent Active: Connected to Groq Llama-4"
+                title="AI Agent Active: Connected to Anthropic Claude Sonnet 4.6"
               />
             </div>
             <span style={{ fontSize: 10.5, fontWeight: 500, color: T.t500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
