@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     await initDb();
     if (req.method === 'GET') {
       const dbRes = await pool.query(
-        'SELECT id, name, timestamp, platform, events_count AS "eventsCount", events, feature_context AS "featureContext" FROM edvoy_specs_history ORDER BY created_at DESC'
+        'SELECT id, name, timestamp, platform, events_count AS "eventsCount", events, feature_context AS "featureContext", space FROM edvoy_specs_history ORDER BY created_at DESC'
       );
       
       const history = dbRes.rows.map(row => ({
@@ -30,17 +30,17 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Missing item' });
       }
 
-      const { id, name, timestamp, platform, eventsCount, events, featureContext } = item;
-      
+      const { id, name, timestamp, platform, eventsCount, events, featureContext, space } = item;
+
       await pool.query(
-        `INSERT INTO edvoy_specs_history (id, name, timestamp, platform, events_count, events, feature_context)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [id, name, timestamp, platform, eventsCount, JSON.stringify(events), featureContext]
+        `INSERT INTO edvoy_specs_history (id, name, timestamp, platform, events_count, events, feature_context, space)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [id, name, timestamp, platform, eventsCount, JSON.stringify(events), featureContext, space || 'edvoy-student']
       );
 
       // Fetch latest history
       const dbRes = await pool.query(
-        'SELECT id, name, timestamp, platform, events_count AS "eventsCount", events, feature_context AS "featureContext" FROM edvoy_specs_history ORDER BY created_at DESC'
+        'SELECT id, name, timestamp, platform, events_count AS "eventsCount", events, feature_context AS "featureContext", space FROM edvoy_specs_history ORDER BY created_at DESC'
       );
       const history = dbRes.rows.map(row => ({
         ...row,
@@ -51,11 +51,22 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'DELETE') {
-      const { id, clearAll } = req.body || {};
-      
+      const { id, clearAll, space } = req.body || {};
+
       if (clearAll) {
-        await pool.query('DELETE FROM edvoy_specs_history');
-        return res.status(200).json({ success: true, history: [] });
+        if (space) {
+          await pool.query('DELETE FROM edvoy_specs_history WHERE space = $1', [space]);
+        } else {
+          await pool.query('DELETE FROM edvoy_specs_history');
+        }
+        const dbRes = await pool.query(
+          'SELECT id, name, timestamp, platform, events_count AS "eventsCount", events, feature_context AS "featureContext", space FROM edvoy_specs_history ORDER BY created_at DESC'
+        );
+        const history = dbRes.rows.map(row => ({
+          ...row,
+          events: row.events ? JSON.parse(row.events) : []
+        }));
+        return res.status(200).json({ success: true, history });
       }
 
       if (!id) {
@@ -66,7 +77,7 @@ export default async function handler(req, res) {
 
       // Fetch latest history
       const dbRes = await pool.query(
-        'SELECT id, name, timestamp, platform, events_count AS "eventsCount", events, feature_context AS "featureContext" FROM edvoy_specs_history ORDER BY created_at DESC'
+        'SELECT id, name, timestamp, platform, events_count AS "eventsCount", events, feature_context AS "featureContext", space FROM edvoy_specs_history ORDER BY created_at DESC'
       );
       const history = dbRes.rows.map(row => ({
         ...row,

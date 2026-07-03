@@ -83,6 +83,13 @@ const AMPLITUDE_CATEGORIES = [
   'Stand-by Flow'
 ];
 
+// Which Edvoy space a tracking sheet / spec / history item belongs to.
+// Scopes sheet config + specs history so Student and Connect data never mix.
+const SPACES = [
+  { key: 'edvoy-student', label: 'Edvoy Student' },
+  { key: 'edvoy-connect', label: 'Edvoy Connect' },
+];
+
 const CAT_COLOR = {
   'Onboarding': { bg: '#EFF6FF', fg: '#1D4ED8', dot: '#3B82F6' },
   'Onboarding Screen': { bg: '#EFF6FF', fg: '#1D4ED8', dot: '#3B82F6' },
@@ -820,14 +827,22 @@ function App() {
   const [converterInput, setConverterInput]       = useState('');
   const [converterCopied, setConverterCopied]     = useState(false);
 
-  // Google Sheets sync — per platform { ga4: {url,data}, amplitude: {url,data} }
+  // Which Edvoy space is active — scopes sheet config + history below
+  const [space, setSpace] = useState(() => {
+    try { return localStorage.getItem('edvoy_space') || 'edvoy-student'; }
+    catch { return 'edvoy-student'; }
+  });
+
+  // Google Sheets sync — per space, per platform: { [space]: { ga4: {url,data}, amplitude: {url,data} } }
   const [sheetConfig, setSheetConfig]         = useState(() => {
     try {
-      const cfg = JSON.parse(localStorage.getItem('edvoy_sheet_config') || '{}');
+      let cfg = JSON.parse(localStorage.getItem('edvoy_sheet_config') || '{}');
       // migrate old single-sheet format
       const oldData = JSON.parse(localStorage.getItem('edvoy_sheet_data') || 'null');
       const oldUrl  = localStorage.getItem('edvoy_sheet_url') || '';
       if (oldUrl && oldData && !cfg.ga4) cfg.ga4 = { url: oldUrl, data: oldData };
+      // migrate pre-multi-space flat shape ({ga4,amplitude}) into the Student bucket
+      if (cfg.ga4 || cfg.amplitude) cfg = { 'edvoy-student': cfg };
       return cfg;
     } catch { return {}; }
   });
@@ -873,9 +888,12 @@ function App() {
         const res = await fetch('/api/settings');
         if (res.ok) {
           const data = await res.json();
-          if (data.settings?.sheet_config) {
-            setSheetConfig(data.settings.sheet_config);
-            try { localStorage.setItem('edvoy_sheet_config', JSON.stringify(data.settings.sheet_config)); } catch {}
+          let cfg = data.settings?.sheet_config;
+          if (cfg) {
+            // migrate pre-multi-space flat shape ({ga4,amplitude}) into the Student bucket
+            if (cfg.ga4 || cfg.amplitude) cfg = { 'edvoy-student': cfg };
+            setSheetConfig(cfg);
+            try { localStorage.setItem('edvoy_sheet_config', JSON.stringify(cfg)); } catch {}
           }
         }
       } catch (e) {
@@ -885,13 +903,19 @@ function App() {
     loadInit();
   }, []);
 
+  const setActiveSpace = (next) => {
+    setSpace(next);
+    try { localStorage.setItem('edvoy_space', next); } catch {}
+  };
+
   // Keep history page in bounds when items are deleted
   useEffect(() => {
-    const totalPages = Math.ceil(history.length / 5);
+    const count = history.filter(h => (h.space || 'edvoy-student') === space).length;
+    const totalPages = Math.ceil(count / 5);
     if (historyPage > 1 && historyPage > totalPages) {
       setHistoryPage(totalPages || 1);
     }
-  }, [history.length, historyPage]);
+  }, [history, space, historyPage]);
 
   // Sync History to localStorage + DB
   const saveHistory = async (updated, newItem = null) => {
@@ -915,7 +939,7 @@ function App() {
   };
 
   const syncSheet = async (p, url) => {
-    const cleanUrl = (url || sheetConfig[p]?.url || '').trim();
+    const cleanUrl = (url || sheetConfig[space]?.[p]?.url || '').trim();
     if (!cleanUrl) {
       // URL missing — prompt user to re-enter it
       setSheetInputFor(p);
@@ -932,7 +956,7 @@ function App() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Sync failed');
       setSheetConfig(prev => {
-        const next = { ...prev, [p]: { url: cleanUrl, data } };
+        const next = { ...prev, [space]: { ...(prev[space] || {}), [p]: { url: cleanUrl, data } } };
         try { localStorage.setItem('edvoy_sheet_config', JSON.stringify(next)); } catch {}
         // Save to DB so all users/browsers share the same sheet config
         fetch('/api/settings', {
@@ -1084,8 +1108,8 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           images, platform, featureContext,
-          sheetData: sheetConfig[platform]?.data || null,
-          crossData: platform === 'amplitude' ? (sheetConfig.ga4?.data || null) : (sheetConfig.amplitude?.data || null),
+          sheetData: sheetConfig[space]?.[platform]?.data || null,
+          crossData: platform === 'amplitude' ? (sheetConfig[space]?.ga4?.data || null) : (sheetConfig[space]?.amplitude?.data || null),
           sessionEvents,
         }),
         signal: controller.signal,
@@ -1125,7 +1149,8 @@ function App() {
           platform,
           eventsCount: newEvents.length,
           events: newEvents,
-          featureContext
+          featureContext,
+          space,
         };
         saveHistory([newRecord, ...history], newRecord);
 
@@ -1331,8 +1356,9 @@ function App() {
   };
 
   const clearAllHistory = async () => {
-    if (confirm('Are you sure you want to clear your local and cloud specs history?')) {
-      saveHistory([]);
+    const spaceLabel = SPACES.find(s => s.key === space)?.label || space;
+    if (confirm(`Are you sure you want to clear ${spaceLabel}'s local and cloud specs history?`)) {
+      saveHistory(history.filter(h => (h.space || 'edvoy-student') !== space));
       setHistoryPage(1);
       setHistoryThumbs({});
       try { localStorage.removeItem('edvoy_history_thumbs'); } catch {}
@@ -1340,7 +1366,7 @@ function App() {
         await fetch('/api/history', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clearAll: true }),
+          body: JSON.stringify({ clearAll: true, space }),
         });
       } catch (err) {
         console.error('Failed to clear history from DB', err);
@@ -1362,6 +1388,8 @@ function App() {
       setLoading(false);
     }
   };
+
+  const visibleHistory = history.filter(h => (h.space || 'edvoy-student') === space);
 
   const isSameAttachments = events.length > 0 &&
     attachments.length > 0 &&
@@ -1423,6 +1451,28 @@ function App() {
           </div>
         </div>
 
+        {/* Space Switcher — scopes tracking sheets + specs history below */}
+        <div style={{ padding: '14px 20px 0' }}>
+          <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: T.t400, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6, fontFamily: 'var(--font-display)' }}>
+            Space
+          </label>
+          <select
+            value={space}
+            onChange={e => setActiveSpace(e.target.value)}
+            style={{
+              width: '100%', padding: '8px 10px',
+              border: `1px solid ${T.border}`, borderRadius: 8,
+              background: T.surface, color: T.t900,
+              fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+              fontFamily: 'var(--font-body, inherit)',
+            }}
+          >
+            {SPACES.map(s => (
+              <option key={s.key} value={s.key}>{s.label}</option>
+            ))}
+          </select>
+        </div>
+
         {/* Sidebar Nav Links */}
         <nav style={{ padding: '20px 12px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <button
@@ -1453,7 +1503,7 @@ function App() {
             }}
           >
             <IconLayers color={activeTab === 'history' ? T.purple700 : T.t500} />
-            Specs History ({history.length})
+            Specs History ({visibleHistory.length})
           </button>
           <button
             onClick={() => { setActiveTab('guidelines'); setMobileSidebarOpen(false); }}
@@ -1560,7 +1610,7 @@ function App() {
               logo: <IconAmplitude size={16} />,
             },
           ].map(({ key, label, logo, logoBg }) => {
-            const cfg     = sheetConfig[key];
+            const cfg     = sheetConfig[space]?.[key];
             const syncing = sheetSyncingFor === key;
             const open    = sheetInputFor === key;
             const draft   = sheetUrlDrafts[key] || '';
@@ -2360,7 +2410,7 @@ function App() {
                 <div style={{ fontSize: 13, color: T.t500 }}>
                   Review and load specifications previously generated by your team.
                 </div>
-                {history.length > 0 && (
+                {visibleHistory.length > 0 && (
                   <button
                     onClick={clearAllHistory}
                     style={{
@@ -2376,7 +2426,7 @@ function App() {
                 )}
               </div>
 
-              {history.length === 0 ? (
+              {visibleHistory.length === 0 ? (
                 <div style={{
                   background: T.surface, border: `1px dashed ${T.border}`,
                   borderRadius: 16, padding: '64px 24px', textAlign: 'center',
@@ -2394,10 +2444,10 @@ function App() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     {(() => {
                       const itemsPerPage = 5;
-                      const totalPages = Math.ceil(history.length / itemsPerPage);
+                      const totalPages = Math.ceil(visibleHistory.length / itemsPerPage);
                       const currentPage = Math.min(historyPage, totalPages || 1);
                       const startIndex = (currentPage - 1) * itemsPerPage;
-                      const paginatedHistory = history.slice(startIndex, startIndex + itemsPerPage);
+                      const paginatedHistory = visibleHistory.slice(startIndex, startIndex + itemsPerPage);
                       return paginatedHistory.map(item => (
                         <div
                           key={item.id}
@@ -2462,7 +2512,7 @@ function App() {
 
                   {(() => {
                     const itemsPerPage = 5;
-                    const totalPages = Math.ceil(history.length / itemsPerPage);
+                    const totalPages = Math.ceil(visibleHistory.length / itemsPerPage);
                     const currentPage = Math.min(historyPage, totalPages || 1);
                     if (totalPages <= 1) return null;
                     return (

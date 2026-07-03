@@ -10,6 +10,12 @@ const pool = new Pool({
   connectionTimeoutMillis: 10000,
 });
 
+// Neon drops idle connections; without this listener pg treats that as an
+// uncaught error and crashes the whole process instead of just this client.
+pool.on('error', (err) => {
+  console.error('Postgres pool idle-client error (ignored, pool recovers):', err.message);
+});
+
 // Self-initializing table verification
 let initPromise = null;
 
@@ -27,6 +33,7 @@ export const initDb = () => {
       feature_context TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+    ALTER TABLE edvoy_specs_history ADD COLUMN IF NOT EXISTS space VARCHAR(50) NOT NULL DEFAULT 'edvoy-student';
     CREATE TABLE IF NOT EXISTS edvoy_settings (
       key VARCHAR(255) PRIMARY KEY,
       value TEXT NOT NULL,

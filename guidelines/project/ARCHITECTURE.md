@@ -78,7 +78,10 @@ Table: `edvoy_specs_history`
 | `events_count` | INT | Row count |
 | `events` | TEXT | JSON-serialised events array |
 | `feature_context` | TEXT | Optional PM context string |
+| `space` | VARCHAR(50) | `edvoy-student` (default) or `edvoy-connect` — added 2026-07-03 |
 | `created_at` | TIMESTAMP | Auto-set by DB default |
+
+- **Space switcher (2026-07-03)**: sidebar "Space" dropdown (`Edvoy Student` / `Edvoy Connect`) scopes tracking-sheet config and Specs History so the two Edvoy surfaces never mix data. `sheetConfig` is now `{ [space]: { ga4:{url,data}, amplitude:{url,data} } }` (was flat `{ga4,amplitude}` — old shape auto-migrates into `edvoy-student` on load, both from localStorage and from the DB `sheet_config` setting). History rows carry a `space` column (default `edvoy-student`); `/api/history` DELETE `clearAll` accepts an optional `space` to scope the wipe. `db.js` pool now has an `error` listener — Neon idle-connection drops no longer crash the whole process.
 
 ## Key Design Decisions
 - **No bundler**: React + ReactDOM UMD globals; JSX transpiled by Babel standalone at runtime.
