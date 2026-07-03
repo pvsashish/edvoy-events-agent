@@ -142,6 +142,11 @@ const CAT_COLOR = {
   'For back':   { bg: '#F8FAFC', fg: '#475569', dot: '#94A3B8' },
   'Form Filled': { bg: '#ECFDF5', fg: '#065F46', dot: '#10B981' },
   'One Tap Signup': { bg: '#EFF6FF', fg: '#1D4ED8', dot: '#3B82F6' },
+  'App Update Screen': { bg: '#F0F9FF', fg: '#0369A1', dot: '#0EA5E9' },
+  'Explore and Explore Page Banner': { bg: '#FFF7ED', fg: '#C2410C', dot: '#F97316' },
+  'Genie Banner': { bg: '#FAF5FF', fg: '#7E22CE', dot: '#A855F7' },
+  'Stand-by Flow': { bg: '#ECFDF5', fg: '#065F46', dot: '#10B981' },
+  'Terms of Service and  Privacy Policy': { bg: '#F8FAFC', fg: '#475569', dot: '#94A3B8' },
 };
 
 /* ─────────────────────────────────────────
