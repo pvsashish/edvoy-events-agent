@@ -1,4 +1,5 @@
 import pool, { initDb } from './db.js';
+import { uploadDataUrl, deleteByUrl } from './r2.js';
 
 async function queryWithRetry(text, params, retries = 2, delayMs = 3000) {
   for (let i = 0; i <= retries; i++) {
@@ -34,10 +35,10 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const { q, id } = req.query;
 
-      // Single screen with image (for lazy load on select)
+      // Single screen (image_url is a CDN link; legacy `image` kept as fallback)
       if (id) {
         const dbRes = await queryWithRetry(
-          `SELECT id, screen_name AS "screenName", platform, image, events, created_at AS "createdAt"
+          `SELECT id, screen_name AS "screenName", platform, image_url AS "imageUrl", image, events, created_at AS "createdAt"
            FROM edvoy_screens WHERE id = $1`,
           [id]
         );
@@ -45,10 +46,10 @@ export default async function handler(req, res) {
         return res.status(200).json({ screen: dbRes.rows[0] });
       }
 
-      // List — no image column (fast)
+      // List — includes tiny image_url (CDN), never the heavy base64
       if (q) {
         const dbRes = await queryWithRetry(
-          `SELECT id, screen_name AS "screenName", platform, events, created_at AS "createdAt"
+          `SELECT id, screen_name AS "screenName", platform, image_url AS "imageUrl", events, created_at AS "createdAt"
            FROM edvoy_screens
            WHERE screen_name ILIKE $1
               OR EXISTS (
@@ -62,7 +63,7 @@ export default async function handler(req, res) {
       }
 
       const dbRes = await queryWithRetry(
-        `SELECT id, screen_name AS "screenName", platform, events, created_at AS "createdAt"
+        `SELECT id, screen_name AS "screenName", platform, image_url AS "imageUrl", events, created_at AS "createdAt"
          FROM edvoy_screens ORDER BY created_at DESC`
       );
       return res.status(200).json({ screens: dbRes.rows });
@@ -77,13 +78,17 @@ export default async function handler(req, res) {
 
       const rowId = id || `screen_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
+      // Upload the image to R2 (CDN) and store only its URL — keeps Postgres tiny.
+      // `image` column stays empty; image_url is the source of truth.
+      const imageUrl = await uploadDataUrl(image, `scout/${rowId}`);
+
       await queryWithRetry(
-        `INSERT INTO edvoy_screens (id, screen_name, platform, image, events)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [rowId, screenName, platform, image, JSON.stringify(events)]
+        `INSERT INTO edvoy_screens (id, screen_name, platform, image, image_url, events)
+         VALUES ($1, $2, $3, '', $4, $5)`,
+        [rowId, screenName, platform, imageUrl, JSON.stringify(events)]
       );
 
-      return res.status(200).json({ success: true, id: rowId });
+      return res.status(200).json({ success: true, id: rowId, imageUrl });
     }
 
     if (req.method === 'DELETE') {
@@ -98,7 +103,10 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Missing id' });
       }
 
+      // Grab the CDN url first so we can clean up the R2 object after the row is gone.
+      const existing = await queryWithRetry('SELECT image_url FROM edvoy_screens WHERE id = $1', [id]);
       await queryWithRetry('DELETE FROM edvoy_screens WHERE id = $1', [id]);
+      if (existing.rows[0]?.image_url) await deleteByUrl(existing.rows[0].image_url);
       return res.status(200).json({ success: true });
     }
 

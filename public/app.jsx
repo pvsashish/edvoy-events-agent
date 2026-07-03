@@ -705,7 +705,7 @@ function App() {
       fetch(`/api/screens${norm ? `?q=${encodeURIComponent(norm)}` : ''}`)
         .then(r => r.json())
         .then(data => {
-          const results = data.screens || [];
+          const results = (data.screens || []).map(s => ({ ...s, image: s.imageUrl || s.image || null }));
           setScoutAllResults(results);
           setScoutResults(results);
           setScoutSelected(results[0] || null);
@@ -733,28 +733,15 @@ function App() {
     const preload = async () => {
       try {
         const data = await fetch('/api/screens').then(r => r.json());
-        const results = data.screens || [];
+        // image_url is a CDN link included in the list — use it directly as the image
+        // source. The browser loads each screenshot straight from R2 (no per-image API
+        // call, no base64 through Neon). `image` holds a URL now instead of a data URL.
+        const results = (data.screens || []).map(s => ({ ...s, image: s.imageUrl || s.image || null }));
         setScoutAllResults(results);
         setScoutResults(results);
         setScoutSelected(results[0] || null);
         setScoutActiveEvent(results[0]?.events?.[0] || null);
         setScoutSearched(true);
-
-        // Preload all images in background, 4 at a time
-        const BATCH = 4;
-        for (let i = 0; i < results.length; i += BATCH) {
-          await Promise.all(results.slice(i, i + BATCH).map(async (screen) => {
-            try {
-              const d = await fetch(`/api/screens?id=${encodeURIComponent(screen.id)}`).then(r => r.json());
-              if (d.screen?.image) {
-                const patch = s => s.id === screen.id ? { ...s, image: d.screen.image } : s;
-                setScoutAllResults(prev => prev.map(patch));
-                setScoutResults(prev => prev.map(patch));
-                setScoutSelected(prev => prev?.id === screen.id ? { ...prev, image: d.screen.image } : prev);
-              }
-            } catch(e) {}
-          }));
-        }
       } catch(e) {}
     };
     preload();
@@ -781,9 +768,10 @@ function App() {
     fetch(`/api/screens?id=${encodeURIComponent(scoutSelected.id)}`)
       .then(r => r.json())
       .then(data => {
-        if (data.screen?.image) {
-          setScoutResults(prev => prev.map(s => s.id === data.screen.id ? { ...s, image: data.screen.image } : s));
-          setScoutSelected(prev => prev?.id === data.screen.id ? { ...prev, image: data.screen.image } : prev);
+        const img = data.screen?.imageUrl || data.screen?.image;
+        if (img) {
+          setScoutResults(prev => prev.map(s => s.id === data.screen.id ? { ...s, image: img } : s));
+          setScoutSelected(prev => prev?.id === data.screen.id ? { ...prev, image: img } : prev);
         }
       })
       .catch(console.error)
