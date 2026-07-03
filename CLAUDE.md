@@ -4,7 +4,7 @@ This file is read automatically at the start of every Claude Code session. It te
 
 ## What This Project Is
 
-PM tool for Edvoy's analytics team. Lets PMs upload screenshots/videos of the Edvoy web portal, select GA4 or Amplitude, and get correctly-formatted analytics event specs. Also includes **Scout** — a visual event map showing real screenshots with highlighted UI elements for every tracked event.
+PM tool for Edvoy's analytics team. Lets PMs upload screenshots/videos, select GA4 or Amplitude, and get correctly-formatted analytics event specs. A sidebar **Space** switcher (Edvoy Student / Edvoy Connect) scopes tracking-sheet connections + Specs History per Edvoy surface so they never mix. Also includes **Scout** — a visual event map showing real screenshots with highlighted UI elements for every tracked event.
 
 **Live URL:** Vercel auto-deploys from `main` branch (check Vercel dashboard for URL).
 **Dev server:** `cd /Users/ashish/Documents/events-agent && npx vercel@latest dev --listen 3333`
@@ -32,23 +32,21 @@ Key files:
 
 ---
 
-## Current State (as of 2026-06-25, last commit b1feed4)
+## Current State (as of 2026-07-03, last commit bfdc39d)
 
-### ⚠️ BLOCKER: Neon data transfer quota exceeded
-- All 105 Scout records are intact in Neon DB — nothing lost
-- Reads fail with: `"Your project has exceeded the data transfer quota"`
-- **Resets 2026-07-01** (Neon free tier resets monthly)
-- Root cause: storing full-resolution screenshots as base64 TEXT in PostgreSQL — each page load preloads all 105 images through Neon
+No open blockers. DB lives in its own dedicated Neon project (`edvoy-events-agent`, not shared with any other tool). Scout images are on Cloudflare R2, not Neon — the old base64-in-Postgres transfer problem is permanently gone.
 
-### First thing to do on July 1 (after quota resets)
-Migrate images from Neon to **Vercel Blob** (or Cloudflare R2):
-1. For each record: read `image` (base64), upload to Blob, get URL
-2. Add `image_url VARCHAR` column to `edvoy_screens`
-3. Update record: set `image_url`, clear `image`
-4. Update `api/screens.js`: POST stores to Blob, returns URL; GET returns URL not base64
-5. Update `public/app.jsx`: `<img src={record.image_url}>` instead of base64
+### Space switcher (2026-07-03)
+Sidebar "Space" dropdown: **Edvoy Student** (default — existing GA4+Amplitude sheets, all history) / **Edvoy Connect** (new, counselors/agents surface — Amplitude only so far, starts empty). Scopes tracking-sheet config + Specs History so the two never mix. `sheetConfig` is nested per space (`{[space]:{ga4,amplitude}}`); old flat shape auto-migrates into the `edvoy-student` bucket on load. History rows carry a `space` column (default `edvoy-student`). Edvoy Connect's tracking sheet still needs real event rows synced in — the tab checked so far only had headers.
 
-This eliminates the transfer problem permanently. Neon only stores metadata (~1KB/record), images served from CDN.
+### Scout images on Cloudflare R2 (2026-07-03)
+Images migrated off Neon (was 140MB base64 in Postgres) to R2 (`edvoy-events-assets` bucket, public CDN URL). `edvoy_screens.image_url` is the only image field now (base64 `image` column dropped). R2 env vars are on Vercel (Production) — confirmed working, ingestion (POST) should work live.
+
+### Dedicated Neon project (2026-07-02)
+DB moved out of the shared `reddit-tool-staging` Neon project into its own (`edvoy-events-agent`). No more shared quota, no more mystery outages from another tool's usage.
+
+### Postgres pool crash fix (2026-07-03)
+`api/db.js` had no `error` listener on the connection pool — Neon dropping an idle connection was an unhandled error that crashed the entire Node process (local `vercel dev` and, in principle, live too). Fixed with `pool.on('error', ...)`.
 
 ### AI engine (Anthropic only)
 `claude-sonnet-4-6`, temperature 0, all 3 pipeline steps via Messages API (`https://api.anthropic.com/v1/messages`, header `anthropic-version: 2023-06-01`). `ANTHROPIC_API_KEY` in Vercel env (prod + preview) and local `.env`. Paid per token — $3/M input, $15/M output. Groq + Gemini fully removed 2026-06-30.
@@ -61,15 +59,9 @@ This eliminates the transfer problem permanently. Neon only stores metadata (~1K
 - **Deterministic + de-duped**: temperature 0, one row per event+param, varying values → `dynamic value`.
 
 ### What's built and working
-- **Scout workspace redesign** — pushed to GitHub, will show correctly once DB accessible
-  - Unified card (header + canvas + event rail + footer)
-  - In-memory search (instant, no DB round-trip)
-  - Platform toggle (GA4 / AMP), screen grouping, 10-per-page pagination
-  - Copy-to-clipboard per event row with toast
-  - Auto-fit canvas (720px, handles any screenshot size)
-  - Form-factor chip (Mobile/Desktop from image dimensions)
+- **Scout workspace**: unified card (header + canvas + event rail + footer), in-memory search, platform toggle (GA4/AMP), screen grouping, 10-per-page pagination, copy-to-clipboard per row, auto-fit canvas, form-factor chip. Images served from R2 CDN.
 - **Scout data**: 105 events across 24 screens (all GA4, Amplitude pending)
-- **All other features**: Event Generator, Specs History, Naming Converter, Tracking Sheet sync — all working
+- **Event Generator**: Space switcher (Student/Connect) + Specs History + Naming Converter + Tracking Sheet sync — all working
 
 ---
 

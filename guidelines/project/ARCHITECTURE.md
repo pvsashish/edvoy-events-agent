@@ -1,6 +1,6 @@
 # Architecture — Edvoy Events Agent
 
-**Last updated:** 2026-06-30 (Anthropic Sonnet 4.6 only; Groq + Gemini removed; per-generate cost chip; accuracy + UX overhaul)
+**Last updated:** 2026-07-03 (Space switcher; Scout images on Cloudflare R2; dedicated Neon project; Postgres pool crash fix)
 
 ## What It Does
 PM tool for Edvoy's analytics team. Upload screenshots or videos of the Edvoy web portal or mobile app, select GA4 or Amplitude, and receive correctly formatted analytics events + parameters matching the tracking sheet format (Category, Suggested Event Name, Parameter, Sample Value). Specs are persisted to Neon PostgreSQL with localStorage fallback. Also includes Scout — a visual event map that shows real screenshots with highlighted UI elements for each tracked event.
@@ -85,7 +85,7 @@ Table: `edvoy_specs_history`
 
 ## Key Design Decisions
 - **No bundler**: React + ReactDOM UMD globals; JSX transpiled by Babel standalone at runtime.
-- **Base64 images**: Screenshots converted client-side to data URLs, stored in Neon as TEXT. ⚠️ This causes Neon free-tier data transfer overruns — planned migration to Vercel Blob (store URL in Neon instead). See SCOUT_FLOW.md.
+- **Images on Cloudflare R2**: Screenshots convert client-side to data URLs, upload to R2, Neon stores only `image_url`. Fixes the free-tier data transfer overruns the old base64-in-Neon approach caused. See SCOUT_FLOW.md.
 - **Video frame extraction**: Canvas API extracts 3 JPEG frames client-side; the model receives images only.
 - **`outputDirectory: public`**: Vercel serves `public/` as static root — `index.html` resolves at `/`.
 - **Anthropic Claude Sonnet 4.6 (`claude-sonnet-4-6`)**: sole AI provider, all 3 steps. Messages API via plain `fetch` (no SDK), header `anthropic-version: 2023-06-01`, `x-api-key`. `system` field + images as base64 `image` blocks (`dataUrlToImageBlock` converts data URLs). **temperature 0, max_tokens 8192.** `anthropicWithRetry` retries transient 429/5xx/529. Paid per token — `api/analyze.js` sums usage across all 3 calls → returns `usage: {input_tokens, output_tokens, cost_usd, calls}`; UI shows a `$cost` chip per generate. Groq + Gemini removed 2026-06-30 (Groq Llama-4-Scout was weaker + MoE-nondeterministic; switching surfaced + fixed the `from`-on-Amplitude filler bug).

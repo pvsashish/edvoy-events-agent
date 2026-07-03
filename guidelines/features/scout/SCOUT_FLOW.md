@@ -124,9 +124,8 @@ for fname in sorted(f for f in os.listdir(folder) if f.endswith('.png')):
 
 Note: Neon DB has occasional SSL connection flakiness — `api/screens.js` has `queryWithRetry` (2 retries, 3s delay) to handle this server-side. If a POST returns 500, wait 8s and retry manually.
 
-## ⚠️ Known issue: Neon free-tier data transfer quota
-Storing full-resolution screenshots as base64 TEXT in PostgreSQL burns through Neon's 5GB/month free transfer limit quickly (105 screenshots × preload on every mount). Quota exceeded as of 2026-06-23; resets 2026-07-01.
-
-**Planned fix (do on July 1):** Move images to Vercel Blob or Cloudflare R2 (free object storage). Neon stores only the image URL (a few bytes). This eliminates the transfer problem permanently.
-- Neon stays for metadata: `id`, `screen_name`, `platform`, `events`, `image_url`
-- Images served from CDN URL, never through Neon
+## Resolved: images moved to Cloudflare R2 (2026-07-03)
+Images used to be base64 TEXT in Postgres, which burned through Neon's free transfer quota (105 screenshots preloaded on every mount). Fixed permanently: all images now live on Cloudflare R2 (bucket `edvoy-events-assets`), served straight from its public CDN URL.
+- Neon holds only metadata: `id`, `screen_name`, `platform`, `events`, `image_url` (the old base64 `image` column was dropped, ~140MB reclaimed)
+- `api/r2.js` — reusable S3-compatible upload/delete helper
+- R2 env vars are set on Vercel (Production) — ingestion (POST) works live
