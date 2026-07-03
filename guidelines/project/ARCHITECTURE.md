@@ -1,6 +1,6 @@
 # Architecture — Edvoy Events Agent
 
-**Last updated:** 2026-07-03 (Space switcher incl. Scout scoping + sheet-edit-box fix; History thumbnails on Cloudflare R2 + auto-migration; Scout images on Cloudflare R2; dedicated Neon project; Postgres pool crash fix)
+**Last updated:** 2026-07-03 (Mobile/tablet responsive fixes incl. a global `<aside>` CSS bug; Space switcher incl. Scout scoping + sheet-edit-box fix; History thumbnails on Cloudflare R2 + auto-migration; Scout images on Cloudflare R2; dedicated Neon project; Postgres pool crash fix)
 
 ## What It Does
 PM tool for Edvoy's analytics team. Upload screenshots or videos of the Edvoy web portal or mobile app, select GA4 or Amplitude, and receive correctly formatted analytics events + parameters matching the tracking sheet format (Category, Suggested Event Name, Parameter, Sample Value). Specs are persisted to Neon PostgreSQL with localStorage fallback. Also includes Scout — a visual event map that shows real screenshots with highlighted UI elements for each tracked event.

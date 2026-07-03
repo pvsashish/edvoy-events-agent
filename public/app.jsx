@@ -1446,8 +1446,8 @@ function App() {
       />
 
       {/* ── Sidebar Navigation ── */}
-      <aside 
-        className={`${mobileSidebarOpen ? 'sidebar-open' : ''}`}
+      <aside
+        className={`app-sidebar ${mobileSidebarOpen ? 'sidebar-open' : ''}`}
         style={{
           width: 260,
           background: T.surface,
@@ -1782,7 +1782,7 @@ function App() {
       </aside>
 
       {/* ── Main Panel Container ── */}
-      <main style={{ marginLeft: 260, flex: 1, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <main style={{ marginLeft: 260, flex: 1, minWidth: 0, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
 
         {/* Mobile Header Bar */}
         <div className="mobile-header-bar">
@@ -2749,7 +2749,7 @@ function App() {
                     onKeyDown={(e) => { if (e.key === 'Enter') runScoutSearch(scoutQuery); }}
                     placeholder="Search by event name (click_view_application) or screen name (Course Details)…"
                     style={{
-                      flex: 1, padding: '10px 14px', borderRadius: 8,
+                      flex: 1, minWidth: 0, padding: '10px 14px', borderRadius: 8,
                       border: `1px solid ${T.border}`, fontSize: 13.5,
                       outline: 'none', fontFamily: 'var(--font-body)',
                     }}
@@ -2903,10 +2903,10 @@ function App() {
                   </header>
 
                   {/* ── Workspace body ───────────────────────────────── */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 380px', alignItems: 'stretch' }}>
+                  <div className="scout-workspace-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 380px', alignItems: 'stretch' }}>
 
                     {/* LEFT: screen canvas */}
-                    <div style={{ background: 'radial-gradient(circle at 50% 0%, #F4EFFD 0%, #E9E2F5 100%)', padding: '32px 28px', display: 'flex', justifyContent: 'center', alignItems: 'center', borderRight: '1px solid #ECECF0', position: 'relative', height: 720, maxHeight: 720, overflow: 'hidden' }}>
+                    <div className="scout-canvas" style={{ background: 'radial-gradient(circle at 50% 0%, #F4EFFD 0%, #E9E2F5 100%)', padding: '32px 28px', display: 'flex', justifyContent: 'center', alignItems: 'center', borderRight: '1px solid #ECECF0', position: 'relative', height: 720, maxHeight: 720, overflow: 'hidden' }}>
                       {/* Crosshair corners */}
                       {[['top:14px','left:14px','M3 8 V3 H8'],['top:14px','right:14px','M21 8 V3 H16'],['bottom:14px','left:14px','M3 16 V21 H8'],['bottom:14px','right:14px','M21 16 V21 H16']].map(([v,h,d],i) => (
                         <svg key={i} style={{ position:'absolute', ...Object.fromEntries([v,h].map(s => s.split(':'))), color:'#7C3AED', opacity:.25 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
@@ -2950,7 +2950,7 @@ function App() {
                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, color: '#6B7280', background: '#F6F5F9', padding: '2px 8px', borderRadius: 5, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{pageEvents.length} of {filteredResults.length}</span>
                       </div>
                       {/* Scrollable grouped list */}
-                      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', height: 668 }}>
+                      <div className="scout-rail-list" style={{ flex: 1, minHeight: 0, overflowY: 'auto', height: 668 }}>
                         {pageGroups.map(({ screenName, records }) => {
                           const fgColor = GROUP_FG[screenName] || CAT_COLOR[screenName]?.fg || '#374151';
                           return (
