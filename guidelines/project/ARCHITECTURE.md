@@ -1,6 +1,6 @@
 # Architecture — Edvoy Events Agent
 
-**Last updated:** 2026-07-03 (Space switcher; Scout images on Cloudflare R2; dedicated Neon project; Postgres pool crash fix)
+**Last updated:** 2026-07-03 (Space switcher incl. Scout scoping + sheet-edit-box fix; History thumbnails on Cloudflare R2 + auto-migration; Scout images on Cloudflare R2; dedicated Neon project; Postgres pool crash fix)
 
 ## What It Does
 PM tool for Edvoy's analytics team. Upload screenshots or videos of the Edvoy web portal or mobile app, select GA4 or Amplitude, and receive correctly formatted analytics events + parameters matching the tracking sheet format (Category, Suggested Event Name, Parameter, Sample Value). Specs are persisted to Neon PostgreSQL with localStorage fallback. Also includes Scout — a visual event map that shows real screenshots with highlighted UI elements for each tracked event.
@@ -66,6 +66,7 @@ Table: `edvoy_screens` (Scout)
 | `platform` | VARCHAR | `ga4` or `amplitude` |
 | `image` | TEXT | base64 data URL |
 | `events` | JSONB | `[{ event_name, label, bbox: [x,y,w,h] }]` |
+| `space` | VARCHAR(50) | `edvoy-student` (default) or `edvoy-connect` — added 2026-07-03, Scout is now Space-scoped |
 | `created_at` | TIMESTAMP | Auto-set |
 
 Table: `edvoy_specs_history`
@@ -79,9 +80,11 @@ Table: `edvoy_specs_history`
 | `events` | TEXT | JSON-serialised events array |
 | `feature_context` | TEXT | Optional PM context string |
 | `space` | VARCHAR(50) | `edvoy-student` (default) or `edvoy-connect` — added 2026-07-03 |
+| `thumbnail_url` | VARCHAR | R2 CDN link, nullable — added 2026-07-03 |
 | `created_at` | TIMESTAMP | Auto-set by DB default |
 
-- **Space switcher (2026-07-03)**: sidebar "Space" dropdown (`Edvoy Student` / `Edvoy Connect`) scopes tracking-sheet config and Specs History so the two Edvoy surfaces never mix data. `sheetConfig` is now `{ [space]: { ga4:{url,data}, amplitude:{url,data} } }` (was flat `{ga4,amplitude}` — old shape auto-migrates into `edvoy-student` on load, both from localStorage and from the DB `sheet_config` setting). History rows carry a `space` column (default `edvoy-student`); `/api/history` DELETE `clearAll` accepts an optional `space` to scope the wipe. `db.js` pool now has an `error` listener — Neon idle-connection drops no longer crash the whole process.
+- **Space switcher (2026-07-03)**: sidebar "Space" dropdown (`Edvoy Student` / `Edvoy Connect`) scopes tracking-sheet config, Specs History, **and Scout** so the two Edvoy surfaces never mix data. `sheetConfig` is now `{ [space]: { ga4:{url,data}, amplitude:{url,data} } }` (was flat `{ga4,amplitude}` — old shape auto-migrates into `edvoy-student` on load, both from localStorage and from the DB `sheet_config` setting). History and Scout rows both carry a `space` column (default `edvoy-student`); their `clearAll` DELETE endpoints accept an optional `space` to scope the wipe. `db.js` pool now has an `error` listener — Neon idle-connection drops no longer crash the whole process. Switching Space also closes any open tracking-sheet edit box (was previously left open showing the other space's draft URL — fixed 2026-07-03).
+- **History thumbnails on Cloudflare R2 (2026-07-03)**: previously a generated spec's preview thumbnail only lived in the generating browser's localStorage (`edvoy_history_thumbs`) — invisible on any other device. Now the thumbnail uploads to R2 (`history/<id>.<ext>`, separate prefix from Scout's `scout/<id>`) in the same request that saves the spec, and `thumbnail_url` is returned by `/api/history` GET. Rendering prefers `item.thumbnailUrl`, falling back to the local cache for pre-migration items. A one-time **self-healing client-side migration** runs on load: any history item missing a DB thumbnail but present in *this browser's* local cache gets uploaded to R2 automatically (idempotent — `PATCH /api/history` skips if a thumbnail already exists). Old items only recover if opened in the browser that originally generated them.
 
 ## Key Design Decisions
 - **No bundler**: React + ReactDOM UMD globals; JSX transpiled by Babel standalone at runtime.

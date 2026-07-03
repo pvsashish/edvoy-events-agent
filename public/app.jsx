@@ -908,9 +908,44 @@ function App() {
     loadInit();
   }, []);
 
+  // One-time self-healing migration: history items created before R2-backed
+  // thumbnails existed only have their preview cached in this browser's
+  // localStorage. If we find one, back it up to R2 so it survives across
+  // devices too. Skips anything that already has a DB thumbnail.
+  const thumbMigrationRanRef = useRef(false);
+  useEffect(() => {
+    if (thumbMigrationRanRef.current) return;
+    if (!history.length) return;
+    const candidates = history.filter(h => !h.thumbnailUrl && historyThumbs[h.id]);
+    if (!candidates.length) return;
+    thumbMigrationRanRef.current = true;
+    (async () => {
+      for (const item of candidates) {
+        try {
+          const res = await fetch('/api/history', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: item.id, thumbnail: historyThumbs[item.id] }),
+          });
+          const data = await res.json();
+          if (data.thumbnailUrl) {
+            setHistory(prev => prev.map(h => h.id === item.id ? { ...h, thumbnailUrl: data.thumbnailUrl } : h));
+          }
+        } catch (e) {
+          console.warn('Thumbnail migration failed for', item.id, e);
+        }
+      }
+    })();
+  }, [history, historyThumbs]);
+
   const setActiveSpace = (next) => {
     setSpace(next);
     try { localStorage.setItem('edvoy_space', next); } catch {}
+    // Close any open sheet-edit box — otherwise a draft URL typed for the old
+    // space stays visible and could get synced into the new space by mistake.
+    setSheetInputFor(null);
+    setSheetUrlDrafts({ ga4: '', amplitude: '' });
+    setSheetSyncError(null);
   };
 
   // Keep history page in bounds when items are deleted
@@ -923,7 +958,7 @@ function App() {
   }, [history, space, historyPage]);
 
   // Sync History to localStorage + DB
-  const saveHistory = async (updated, newItem = null) => {
+  const saveHistory = async (updated, newItem = null, thumbnail = null) => {
     setHistory(updated);
     try {
       localStorage.setItem('edvoy_specs_history', JSON.stringify(updated));
@@ -935,7 +970,7 @@ function App() {
         await fetch('/api/history', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ item: newItem }),
+          body: JSON.stringify({ item: newItem, thumbnail }),
         });
       } catch (e) {
         console.error('Failed to save history item to DB', e);
@@ -1157,17 +1192,15 @@ function App() {
           featureContext,
           space,
         };
-        saveHistory([newRecord, ...history], newRecord);
-
-        // Generate and save a compressed thumbnail to localStorage for this record
-        if (images[0]) {
-          generateThumbnail(images[0]).then(thumb => {
-            if (!thumb) return;
-            setHistoryThumbs(prev => {
-              const next = { ...prev, [newRecord.id]: thumb };
-              try { localStorage.setItem('edvoy_history_thumbs', JSON.stringify(next)); } catch {}
-              return next;
-            });
+        // Compressed thumbnail goes to R2 (via the history POST below) so it's shared
+        // across devices; also cached locally for instant render before the next reload.
+        const thumb = images[0] ? await generateThumbnail(images[0]) : null;
+        saveHistory([newRecord, ...history], newRecord, thumb);
+        if (thumb) {
+          setHistoryThumbs(prev => {
+            const next = { ...prev, [newRecord.id]: thumb };
+            try { localStorage.setItem('edvoy_history_thumbs', JSON.stringify(next)); } catch {}
+            return next;
           });
         }
       }
@@ -1323,8 +1356,8 @@ function App() {
     }));
     setEvents(mapped);
 
-    // Restore saved thumbnail if available
-    const thumb = historyThumbs[item.id];
+    // Restore saved thumbnail if available (R2 URL preferred, legacy local cache as fallback)
+    const thumb = item.thumbnailUrl || historyThumbs[item.id];
     if (thumb) {
       const thumbAtt = [{ id: item.id + '_hist', type: 'image', name: 'Attachment (history)', dataUrl: thumb, fromHistory: true }];
       setAttachments(thumbAtt);
@@ -2491,9 +2524,9 @@ function App() {
                           </div>
 
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                            {historyThumbs[item.id] && (
+                            {(item.thumbnailUrl || historyThumbs[item.id]) && (
                               <img
-                                src={historyThumbs[item.id]}
+                                src={item.thumbnailUrl || historyThumbs[item.id]}
                                 alt=""
                                 style={{ width: 60, height: 38, objectFit: 'cover', borderRadius: 6, border: `1px solid ${T.border}`, flexShrink: 0, display: 'block' }}
                               />
@@ -2678,11 +2711,13 @@ function App() {
           ───────────────────────────────────────── */}
           {activeTab === 'scout' && (() => {
 
-            const ga4Count = scoutResults.filter(r => r.platform === 'ga4').length;
-            const ampCount = scoutResults.filter(r => r.platform === 'amplitude').length;
+            // Scout is scoped to the active Space, same as sheet config + history
+            const scoutSpaceResults = scoutResults.filter(r => (r.space || 'edvoy-student') === space);
+            const ga4Count = scoutSpaceResults.filter(r => r.platform === 'ga4').length;
+            const ampCount = scoutSpaceResults.filter(r => r.platform === 'amplitude').length;
             const filteredResults = scoutPlatformFilter === 'all'
-              ? scoutResults
-              : scoutResults.filter(r => r.platform === scoutPlatformFilter);
+              ? scoutSpaceResults
+              : scoutSpaceResults.filter(r => r.platform === scoutPlatformFilter);
 
             // Group by screenName preserving search-relevance order
             const groups = [];
@@ -2738,7 +2773,7 @@ function App() {
                 </div>
               )}
 
-              {!scoutLoading && scoutSearched && scoutResults.length === 0 && scoutLastSearchQuery !== null && (
+              {!scoutLoading && scoutSearched && scoutSpaceResults.length === 0 && scoutLastSearchQuery !== null && (
                 <div style={{ ...cardStyle, textAlign: 'center', color: T.t500, fontSize: 13 }}>
                   {scoutLastSearchQuery
                     ? <>
@@ -2752,7 +2787,7 @@ function App() {
                 </div>
               )}
 
-              {!scoutLoading && scoutResults.length > 0 && (() => {
+              {!scoutLoading && scoutSpaceResults.length > 0 && (() => {
                 // ── Inline SVG atoms ──────────────────────────────────
                 const GA4Logo = ({ size = 13 }) => (
                   <svg width={size} height={size} viewBox="0 0 24 24" style={{ flexShrink: 0 }}>

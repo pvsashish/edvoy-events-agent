@@ -1,10 +1,10 @@
 # Specs History Flow
 
-**Last updated:** 2026-06-12
+**Last updated:** 2026-07-03 (Space-scoped; thumbnails moved to Cloudflare R2 + auto-migration)
 **Status:** active
 
 ## What It Does
-Persists every generated event spec to Neon PostgreSQL so PMs can retrieve and re-use past work. Falls back to localStorage if `DATABASE_URL` is unset. Supports pagination (5 items/page), individual delete, and clear-all.
+Persists every generated event spec to Neon PostgreSQL so PMs can retrieve and re-use past work. Falls back to localStorage if `DATABASE_URL` is unset. Supports pagination (5 items/page), individual delete, and clear-all. Scoped by **Space** (`edvoy-student` / `edvoy-connect`, see the sidebar "Space" dropdown) — each space only sees its own history, `clearAll` only wipes the active space's rows. Each item's preview thumbnail lives on Cloudflare R2 (`history/<id>`), not just the generating browser.
 
 ## Entry Points
 - Files: `api/history.js`, `api/db.js`
@@ -41,8 +41,9 @@ Persists every generated event spec to Neon PostgreSQL so PMs can retrieve and r
 
 ## API Contract
 **GET** → `{ history: HistoryItem[] }`
-**POST** body: `{ item: HistoryItem }` → `{ success: true, history: HistoryItem[] }`
-**DELETE** body: `{ id: string }` or `{ clearAll: true }` → `{ success: true, history: HistoryItem[] }`
+**POST** body: `{ item: HistoryItem, thumbnail?: string }` → `{ success: true, history: HistoryItem[] }` — `thumbnail` is a base64 data URL, uploaded to R2 (`history/<id>.<ext>`) if present; the row's `thumbnail_url` stores the CDN link.
+**PATCH** body: `{ id: string, thumbnail: string }` → `{ success: true, thumbnailUrl, skipped?: true }` — one-time migration hook: attaches a thumbnail to a record that doesn't have one yet (`skipped: true` if it already does, never overwrites).
+**DELETE** body: `{ id: string }` or `{ clearAll: true, space?: string }` → `{ success: true, history: HistoryItem[] }` — deletes the R2 thumbnail object(s) too, not just the DB row(s).
 
 ```ts
 type HistoryItem = {
@@ -53,8 +54,13 @@ type HistoryItem = {
   eventsCount: number;
   events: Event[];
   featureContext?: string;
+  space?: string; // 'edvoy-student' (default) | 'edvoy-connect'
+  thumbnailUrl?: string; // R2 CDN link, null until a thumbnail exists
 }
 ```
+
+## Thumbnail migration (self-healing, client-side)
+Items generated before 2026-07-03 only have their thumbnail cached in the generating browser's `localStorage` (`edvoy_history_thumbs`) — the DB has no `thumbnail_url` for them. On every app load, `public/app.jsx` checks for history items missing `thumbnailUrl` that this browser happens to have cached, and PATCHes them up to R2 automatically. Runs once per session (ref guard), safe to re-run (server-side skip if already migrated). Only recovers a thumbnail if opened in the browser that originally generated it — no way to recover a thumbnail that was never cached anywhere.
 
 ## Fallback Behaviour
 If `DATABASE_URL` missing → `api/history.js` returns `{ history: [], warning }`. Frontend reads `warning` field and activates localStorage mode — stores/reads from `localStorage.getItem('edvoy_specs_history')`.
@@ -74,6 +80,8 @@ Before modifying:
 ## Change Log
 | Date | Change | Author |
 |------|--------|--------|
+| 2026-07-03 | Thumbnails moved to Cloudflare R2 (`history/<id>`); added PATCH for self-healing client-side migration of pre-existing localStorage-only thumbnails | session |
+| 2026-07-03 | Scoped by Space (`edvoy-student`/`edvoy-connect`); `clearAll` accepts optional `space` | session |
 | 2026-06-08 | Added delete individual + clearAll support | session |
 | 2026-06-08 | Added pagination (5 items/page, historyPage state) | session |
 | 2026-06-07 | Initial implementation — Neon PostgreSQL + localStorage fallback | session |

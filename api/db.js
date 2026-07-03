@@ -34,6 +34,7 @@ export const initDb = () => {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     ALTER TABLE edvoy_specs_history ADD COLUMN IF NOT EXISTS space VARCHAR(50) NOT NULL DEFAULT 'edvoy-student';
+    ALTER TABLE edvoy_specs_history ADD COLUMN IF NOT EXISTS thumbnail_url VARCHAR;
     CREATE TABLE IF NOT EXISTS edvoy_settings (
       key VARCHAR(255) PRIMARY KEY,
       value TEXT NOT NULL,
@@ -47,6 +48,7 @@ export const initDb = () => {
       events JSONB NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+    ALTER TABLE edvoy_screens ADD COLUMN IF NOT EXISTS space VARCHAR(50) NOT NULL DEFAULT 'edvoy-student';
   `;
 
   initPromise = (async () => {

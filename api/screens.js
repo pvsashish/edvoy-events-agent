@@ -38,7 +38,7 @@ export default async function handler(req, res) {
       // Single screen (image_url is a CDN link; legacy `image` kept as fallback)
       if (id) {
         const dbRes = await queryWithRetry(
-          `SELECT id, screen_name AS "screenName", platform, image_url AS "imageUrl", events, created_at AS "createdAt"
+          `SELECT id, screen_name AS "screenName", platform, space, image_url AS "imageUrl", events, created_at AS "createdAt"
            FROM edvoy_screens WHERE id = $1`,
           [id]
         );
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
       // List — includes tiny image_url (CDN), never the heavy base64
       if (q) {
         const dbRes = await queryWithRetry(
-          `SELECT id, screen_name AS "screenName", platform, image_url AS "imageUrl", events, created_at AS "createdAt"
+          `SELECT id, screen_name AS "screenName", platform, space, image_url AS "imageUrl", events, created_at AS "createdAt"
            FROM edvoy_screens
            WHERE screen_name ILIKE $1
               OR EXISTS (
@@ -63,14 +63,14 @@ export default async function handler(req, res) {
       }
 
       const dbRes = await queryWithRetry(
-        `SELECT id, screen_name AS "screenName", platform, image_url AS "imageUrl", events, created_at AS "createdAt"
+        `SELECT id, screen_name AS "screenName", platform, space, image_url AS "imageUrl", events, created_at AS "createdAt"
          FROM edvoy_screens ORDER BY created_at DESC`
       );
       return res.status(200).json({ screens: dbRes.rows });
     }
 
     if (req.method === 'POST') {
-      const { id, screenName, platform, image, events } = req.body;
+      const { id, screenName, platform, image, events, space } = req.body;
 
       if (!screenName || !platform || !image || !Array.isArray(events)) {
         return res.status(400).json({ error: 'Missing screenName, platform, image, or events' });
@@ -83,19 +83,23 @@ export default async function handler(req, res) {
       const imageUrl = await uploadDataUrl(image, `scout/${rowId}`);
 
       await queryWithRetry(
-        `INSERT INTO edvoy_screens (id, screen_name, platform, image_url, events)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [rowId, screenName, platform, imageUrl, JSON.stringify(events)]
+        `INSERT INTO edvoy_screens (id, screen_name, platform, space, image_url, events)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [rowId, screenName, platform, space || 'edvoy-student', imageUrl, JSON.stringify(events)]
       );
 
       return res.status(200).json({ success: true, id: rowId, imageUrl });
     }
 
     if (req.method === 'DELETE') {
-      const { id, clearAll } = req.body || {};
+      const { id, clearAll, space } = req.body || {};
 
       if (clearAll) {
-        await queryWithRetry('DELETE FROM edvoy_screens');
+        if (space) {
+          await queryWithRetry('DELETE FROM edvoy_screens WHERE space = $1', [space]);
+        } else {
+          await queryWithRetry('DELETE FROM edvoy_screens');
+        }
         return res.status(200).json({ success: true });
       }
 

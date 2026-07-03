@@ -94,15 +94,18 @@ Replaced the old two-card layout (preview card + list card) with a single unifie
 ## Screen Name Rules
 `screenName` MUST exactly match a key in `CAT_COLOR` (line ~86 of `app.jsx`). Using an invalid name still saves to DB but renders without a category colour badge.
 
+## Space (2026-07-03)
+Scout is now scoped by the same "Space" dropdown as sheet config + history (`edvoy-student` / `edvoy-connect`). Pass `space` in the POST body — defaults to `edvoy-student` if omitted (so all pre-2026-07-03 records + this doc's example stay correct without a migration).
+
 ## Ingestion Script (reusable)
 ```python
 import base64, json, urllib.request, os, time
 
-def post_event(filepath, event_name, screen_name):
+def post_event(filepath, event_name, screen_name, space='edvoy-student'):
     with open(filepath, 'rb') as f:
         b64 = 'data:image/png;base64,' + base64.b64encode(f.read()).decode()
     data = json.dumps({
-        'screenName': screen_name, 'platform': 'ga4', 'image': b64,
+        'screenName': screen_name, 'platform': 'ga4', 'space': space, 'image': b64,
         'events': [{'event_name': event_name, 'label': event_name, 'bbox': [0,0,0,0]}]
     }).encode()
     req = urllib.request.Request(
