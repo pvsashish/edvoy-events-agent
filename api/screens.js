@@ -38,7 +38,7 @@ export default async function handler(req, res) {
       // Single screen (image_url is a CDN link; legacy `image` kept as fallback)
       if (id) {
         const dbRes = await queryWithRetry(
-          `SELECT id, screen_name AS "screenName", platform, image_url AS "imageUrl", image, events, created_at AS "createdAt"
+          `SELECT id, screen_name AS "screenName", platform, image_url AS "imageUrl", events, created_at AS "createdAt"
            FROM edvoy_screens WHERE id = $1`,
           [id]
         );
@@ -83,8 +83,8 @@ export default async function handler(req, res) {
       const imageUrl = await uploadDataUrl(image, `scout/${rowId}`);
 
       await queryWithRetry(
-        `INSERT INTO edvoy_screens (id, screen_name, platform, image, image_url, events)
-         VALUES ($1, $2, $3, '', $4, $5)`,
+        `INSERT INTO edvoy_screens (id, screen_name, platform, image_url, events)
+         VALUES ($1, $2, $3, $4, $5)`,
         [rowId, screenName, platform, imageUrl, JSON.stringify(events)]
       );
 

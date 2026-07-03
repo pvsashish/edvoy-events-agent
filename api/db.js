@@ -36,7 +36,7 @@ export const initDb = () => {
       id VARCHAR(255) PRIMARY KEY,
       screen_name VARCHAR(255) NOT NULL,
       platform VARCHAR(50) NOT NULL,
-      image TEXT NOT NULL,
+      image_url VARCHAR NOT NULL,
       events JSONB NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
