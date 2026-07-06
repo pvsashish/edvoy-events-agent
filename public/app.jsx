@@ -145,6 +145,7 @@ const CAT_COLOR = {
   'App Update Screen': { bg: '#F0F9FF', fg: '#0369A1', dot: '#0EA5E9' },
   'Explore and Explore Page Banner': { bg: '#FFF7ED', fg: '#C2410C', dot: '#F97316' },
   'Genie Banner': { bg: '#FAF5FF', fg: '#7E22CE', dot: '#A855F7' },
+  'Genie Banner Logged Out': { bg: '#FAF5FF', fg: '#7E22CE', dot: '#A855F7' },
   'Stand-by Flow': { bg: '#ECFDF5', fg: '#065F46', dot: '#10B981' },
   'Terms of Service and  Privacy Policy': { bg: '#F8FAFC', fg: '#475569', dot: '#94A3B8' },
 };
