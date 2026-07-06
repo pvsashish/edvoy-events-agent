@@ -148,6 +148,10 @@ const CAT_COLOR = {
   'Genie Banner Logged Out': { bg: '#FAF5FF', fg: '#7E22CE', dot: '#A855F7' },
   'Stand-by Flow': { bg: '#ECFDF5', fg: '#065F46', dot: '#10B981' },
   'Terms of Service and  Privacy Policy': { bg: '#F8FAFC', fg: '#475569', dot: '#94A3B8' },
+  'Country Story':      { bg: '#ECFEFF', fg: '#0E7490', dot: '#06B6D4' },
+  'Course Card':        { bg: '#FEF3C7', fg: '#92400E', dot: '#F59E0B' },
+  'Institution Card':   { bg: '#FFF1F2', fg: '#BE123C', dot: '#F43F5E' },
+  'Trending Subjects':  { bg: '#F5F3FF', fg: '#6D28D9', dot: '#8B5CF6' },
 };
 
 /* ─────────────────────────────────────────
@@ -823,21 +827,40 @@ function App() {
   const [scoutHoveredId, setScoutHoveredId]           = useState(null);
 
   const runScoutSearch = (q) => {
-    const norm = q.trim().toLowerCase();
-    setScoutLastSearchQuery(q.trim());
+    const raw = q.trim();
+    setScoutLastSearchQuery(raw);
     setScoutSearched(true);
 
-    // Fallback: DB query if mount preload hasn't landed yet
+    // Normalized, word-order-independent matching. Lowercase both sides and strip all
+    // spaces/hyphens/underscores, then require EVERY query word to appear (as a substring)
+    // in the screen name OR in a single event name. So "get started", "get_started" and
+    // "started get" all match get_started_clicked, and "sign up" matches
+    // genie_sign_up_and_chat — regardless of separators or word order.
+    const words = raw.toLowerCase().split(/[\s\-_]+/).filter(Boolean);
+    const norm  = s => (s || '').toLowerCase().replace(/[\s\-_]+/g, '');
+    const matches = r => {
+      if (!words.length) return true;
+      if (words.every(w => norm(r.screenName).includes(w))) return true;
+      return (r.events || []).some(ev => {
+        const t = norm(ev.event_name);
+        return words.every(w => t.includes(w));
+      });
+    };
+
+    // Fallback: fetch the full list if the mount preload hasn't landed yet, then filter
+    // client-side (same normalized matching as the in-memory path — no server-side ILIKE,
+    // which couldn't do separator/word-order normalization anyway).
     if (!scoutAllResults.length) {
       setScoutLoading(true);
-      fetch(`/api/screens${norm ? `?q=${encodeURIComponent(norm)}` : ''}`)
+      fetch(`/api/screens`)
         .then(r => r.json())
         .then(data => {
-          const results = (data.screens || []).map(s => ({ ...s, image: s.imageUrl || s.image || null }));
-          setScoutAllResults(results);
-          setScoutResults(results);
-          setScoutSelected(results[0] || null);
-          setScoutActiveEvent(results[0]?.events?.[0] || null);
+          const all = (data.screens || []).map(s => ({ ...s, image: s.imageUrl || s.image || null }));
+          setScoutAllResults(all);
+          const filtered = words.length ? all.filter(matches) : all;
+          setScoutResults(filtered);
+          setScoutSelected(filtered[0] || null);
+          setScoutActiveEvent(filtered[0]?.events?.[0] || null);
         })
         .catch(err => { console.error('Scout search failed:', err); setScoutResults([]); })
         .finally(() => setScoutLoading(false));
@@ -845,15 +868,18 @@ function App() {
     }
 
     // In-memory filter — instant, no network
-    const filtered = norm
-      ? scoutAllResults.filter(r =>
-          r.screenName?.toLowerCase().includes(norm) ||
-          r.events?.some(ev => ev.event_name?.toLowerCase().includes(norm))
-        )
-      : scoutAllResults;
+    const filtered = words.length ? scoutAllResults.filter(matches) : scoutAllResults;
     setScoutResults(filtered);
     setScoutSelected(filtered[0] || null);
     setScoutActiveEvent(filtered[0]?.events?.[0] || null);
+  };
+
+  // Deselect the current event/screen — used by clicking an already-selected row (toggle
+  // off) and by the explicit "clear selection" (X) button. Clears the canvas too.
+  const clearScoutSelection = () => {
+    setScoutSelected(null);
+    setScoutActiveEvent(null);
+    setScoutDisplayedImage('');
   };
 
   // Mount: load full list into scoutAllResults, then preload all images in background
@@ -2923,6 +2949,24 @@ function App() {
                   >
                     Search
                   </button>
+                  {scoutQuery.trim() && (
+                    <button
+                      onClick={() => { setScoutQuery(''); runScoutSearch(''); clearScoutSelection(); }}
+                      title="Clear search"
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        padding: '10px 16px', borderRadius: 8,
+                        border: `1px solid ${T.border}`, background: '#fff',
+                        color: T.t500, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                        flexShrink: 0, transition: 'background .12s, color .12s, border-color .12s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#F5F0FF'; e.currentTarget.style.color = '#7C3AED'; e.currentTarget.style.borderColor = '#DDD3F5'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = T.t500; e.currentTarget.style.borderColor = T.border; }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6 L18 18 M18 6 L6 18"/></svg>
+                      Clear
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -3108,6 +3152,12 @@ function App() {
                         {!scoutDisplayedImage && scoutImgLoading && (
                           <div style={{ width: 200, height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B7280', fontSize: 13 }}>Loading screenshot…</div>
                         )}
+                        {!scoutDisplayedImage && !scoutImgLoading && (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: '#9488B5', fontSize: 13, textAlign: 'center', padding: 40 }}>
+                            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9 H21"/></svg>
+                            No event selected — pick one from the list
+                          </div>
+                        )}
                         {scoutDisplayedImage && (
                           <img
                             src={scoutDisplayedImage}
@@ -3160,7 +3210,10 @@ function App() {
                                   const isGA4 = s.platform === 'ga4';
                                   return (
                                     <div key={s.id}
-                                      onClick={() => { setScoutSelected(s); setScoutActiveEvent(s.events?.[0] || null); }}
+                                      onClick={() => {
+                                        if (s.id === scoutSelected?.id) { clearScoutSelection(); }
+                                        else { setScoutSelected(s); setScoutActiveEvent(s.events?.[0] || null); }
+                                      }}
                                       onMouseEnter={() => setScoutHoveredId(s.id)}
                                       onMouseLeave={() => setScoutHoveredId(null)}
                                       style={{
