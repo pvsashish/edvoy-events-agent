@@ -1107,6 +1107,20 @@ function App() {
     }
   }, [activeTab]);
 
+  // Platform toggle follows the connected sheets for the active Space. If exactly one
+  // platform has a synced sheet and the *other* one is currently selected, switch to the
+  // connected one. Both-connected or none-connected leaves the selection untouched.
+  // Depends only on [space, sheetConfig] on purpose — it must fire on space-switch /
+  // connect / disconnect, but NOT on a history restore (which sets `platform` directly),
+  // so restoring a spec for an unconnected platform isn't clobbered.
+  useEffect(() => {
+    if (loading || processing) return; // respect the mid-generate lock
+    const g = !!sheetConfig[space]?.ga4?.data;
+    const a = !!sheetConfig[space]?.amplitude?.data;
+    if (g && !a && platform !== 'ga4') setPlatform('ga4');
+    else if (a && !g && platform !== 'amplitude') setPlatform('amplitude');
+  }, [space, sheetConfig]);
+
   const analyze = async () => {
     if (!attachments.length) { setError('Add at least one screenshot or video.'); return; }
     
@@ -1435,6 +1449,14 @@ function App() {
     featureContext === generatedContext &&
     attachments.length === generatedAttachments.length &&
     attachments.every((a, idx) => a.id === generatedAttachments[idx]?.id);
+
+  // A platform is usable only when its tracking sheet is connected for the active Space.
+  const ga4Connected = !!sheetConfig[space]?.ga4?.data;
+  const ampConnected = !!sheetConfig[space]?.amplitude?.data;
+  const platformConnected = platform === 'ga4' ? ga4Connected : ampConnected;
+  // Generate is blocked (in addition to the existing checks) when the selected platform
+  // has no connected sheet — otherwise disabling the toggle would be purely cosmetic.
+  const genDisabled = loading || processing || isSameAttachments || attachments.length === 0 || !platformConnected;
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: T.bg }}>
@@ -1895,17 +1917,17 @@ function App() {
                     }} />
 
                     <button
-                      onClick={() => { if (!loading && !processing) handlePlatformChange('ga4'); }}
-                      disabled={loading || processing}
-                      title={(loading || processing) ? 'Locked while events are generating' : ''}
+                      onClick={() => { if (!loading && !processing && ga4Connected) handlePlatformChange('ga4'); }}
+                      disabled={loading || processing || !ga4Connected}
+                      title={(loading || processing) ? 'Locked while events are generating' : (!ga4Connected ? 'Connect a GA4 sheet to enable' : '')}
                       style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                         padding: '8px', border: 'none', borderRadius: 6,
                         background: 'transparent',
                         color: platform === 'ga4' ? T.purple700 : T.t500,
                         fontSize: 12, fontWeight: 600,
-                        cursor: (loading || processing) ? 'not-allowed' : 'pointer',
-                        opacity: ((loading || processing) && platform !== 'ga4') ? 0.4 : 1,
+                        cursor: (loading || processing || !ga4Connected) ? 'not-allowed' : 'pointer',
+                        opacity: (!ga4Connected || ((loading || processing) && platform !== 'ga4')) ? 0.4 : 1,
                         transition: 'all 0.25s',
                         zIndex: 2,
                         position: 'relative',
@@ -1913,23 +1935,23 @@ function App() {
                     >
                       <IconGA4
                         size={13}
-                        style={{ borderRadius: 2, filter: platform === 'ga4' ? 'none' : 'grayscale(100%) opacity(0.6)' }}
+                        style={{ borderRadius: 2, filter: (platform === 'ga4' && ga4Connected) ? 'none' : 'grayscale(100%) opacity(0.6)' }}
                       />
                       <span className="desktop-only">Google Analytics 4</span>
                       <span className="mobile-only">GA4</span>
                     </button>
                     <button
-                      onClick={() => { if (!loading && !processing) handlePlatformChange('amplitude'); }}
-                      disabled={loading || processing}
-                      title={(loading || processing) ? 'Locked while events are generating' : ''}
+                      onClick={() => { if (!loading && !processing && ampConnected) handlePlatformChange('amplitude'); }}
+                      disabled={loading || processing || !ampConnected}
+                      title={(loading || processing) ? 'Locked while events are generating' : (!ampConnected ? 'Connect an Amplitude sheet to enable' : '')}
                       style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                         padding: '8px', border: 'none', borderRadius: 6,
                         background: 'transparent',
                         color: platform === 'amplitude' ? '#1E61F0' : T.t500,
                         fontSize: 12, fontWeight: 600,
-                        cursor: (loading || processing) ? 'not-allowed' : 'pointer',
-                        opacity: ((loading || processing) && platform !== 'amplitude') ? 0.4 : 1,
+                        cursor: (loading || processing || !ampConnected) ? 'not-allowed' : 'pointer',
+                        opacity: (!ampConnected || ((loading || processing) && platform !== 'amplitude')) ? 0.4 : 1,
                         transition: 'all 0.25s',
                         zIndex: 2,
                         position: 'relative',
@@ -1937,7 +1959,7 @@ function App() {
                     >
                       <IconAmplitude
                         size={13}
-                        style={{ borderRadius: 2, filter: platform === 'amplitude' ? 'none' : 'grayscale(100%) opacity(0.6)' }}
+                        style={{ borderRadius: 2, filter: (platform === 'amplitude' && ampConnected) ? 'none' : 'grayscale(100%) opacity(0.6)' }}
                       />
                       Amplitude
                     </button>
@@ -2034,21 +2056,21 @@ function App() {
                 {/* Generate Spec Action */}
                 <button
                   onClick={analyze}
-                  disabled={loading || processing || isSameAttachments || attachments.length === 0}
+                  disabled={genDisabled}
                   className="btn-active-shrink gradient-shine-btn"
                   style={{
                     padding: '12px 24px',
-                    background: (loading || processing || isSameAttachments || attachments.length === 0) ? T.border : T.grad,
-                    color: (loading || processing || isSameAttachments || attachments.length === 0) ? T.t400 : '#fff',
+                    background: genDisabled ? T.border : T.grad,
+                    color: genDisabled ? T.t400 : '#fff',
                     border: 'none', borderRadius: 10,
                     fontSize: 13, fontWeight: 700,
-                    cursor: (loading || processing || isSameAttachments || attachments.length === 0) ? 'not-allowed' : 'pointer',
+                    cursor: genDisabled ? 'not-allowed' : 'pointer',
                     transition: 'all 0.15s',
-                    boxShadow: (loading || processing || isSameAttachments || attachments.length === 0) ? 'none' : '0 4px 14px rgba(156, 32, 215, 0.25)',
+                    boxShadow: genDisabled ? 'none' : '0 4px 14px rgba(156, 32, 215, 0.25)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                   }}
-                  onMouseEnter={e => { if (!loading && !processing && !isSameAttachments && attachments.length > 0) e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                  onMouseLeave={e => { if (!loading && !processing && !isSameAttachments && attachments.length > 0) e.currentTarget.style.transform = 'translateY(0)'; }}
+                  onMouseEnter={e => { if (!genDisabled) e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                  onMouseLeave={e => { if (!genDisabled) e.currentTarget.style.transform = 'translateY(0)'; }}
                 >
                   {loading ? (
                     <div style={spinStyle}>
@@ -2064,6 +2086,14 @@ function App() {
                       : 'Analyzing…')
                     : (isSameAttachments ? 'Spec Already Generated' : 'Generate Event Spec')}
                 </button>
+
+                {!platformConnected && !loading && !processing && (
+                  <p style={{ fontSize: 11.5, color: T.t400, textAlign: 'center', marginTop: -4, lineHeight: 1.5 }}>
+                    {ga4Connected || ampConnected
+                      ? `Connect a ${platform === 'ga4' ? 'GA4' : 'Amplitude'} tracking sheet to generate for this platform.`
+                      : 'Connect a tracking sheet (GA4 or Amplitude) to start generating.'}
+                  </p>
+                )}
 
                 {isSameAttachments && !loading && (
                   <p style={{ fontSize: 11.5, color: T.t400, textAlign: 'center', marginTop: -4, lineHeight: 1.5 }}>

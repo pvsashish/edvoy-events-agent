@@ -36,6 +36,9 @@ Key files:
 
 No open blockers. DB lives in its own dedicated Neon project (`edvoy-events-agent`, not shared with any other tool). Scout images are on Cloudflare R2, not Neon — the old base64-in-Postgres transfer problem is permanently gone.
 
+### Platform toggle follows connected sheets (2026-07-06)
+GA4/Amplitude toggle is gated on connection for the active Space: only a platform whose tracking sheet has synced `data` (`sheetConfig[space]?.[p]?.data`) is enabled. One connected → auto-selected + other hard-disabled; both → user picks; neither → both disabled + Generate blocked with a hint. Auto-select `useEffect` deps exclude `platform` so history restore isn't clobbered. All `public/app.jsx`.
+
 ### Space switcher (2026-07-03)
 Sidebar "Space" dropdown: **Edvoy Student** (default — existing GA4+Amplitude sheets, all history) / **Edvoy Connect** (new, counselors/agents surface — Amplitude only so far, starts empty). Scopes tracking-sheet config + Specs History so the two never mix. `sheetConfig` is nested per space (`{[space]:{ga4,amplitude}}`); old flat shape auto-migrates into the `edvoy-student` bucket on load. History rows carry a `space` column (default `edvoy-student`). Edvoy Connect's tracking sheet still needs real event rows synced in — the tab checked so far only had headers.
 
