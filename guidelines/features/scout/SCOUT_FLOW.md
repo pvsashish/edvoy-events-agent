@@ -67,7 +67,7 @@ The table below is the original **GA4** set (105 records / 24 screens). **Amplit
 
 > **Later GA4 additions (2026-07-06):** `Profile` (19 events) and `Shortlist` (2: `courses_under_shortlist_clicked`, `shortlist_tab_clicked`), `platform: ga4`, `space: edvoy-student`. Both categories already existed in `CAT_COLOR`/`GA4_CATEGORIES` (no code change needed). Event names kept verbatim from filenames incl. ` - 1`/` -2` suffixes.
 
-> **Pagination is pack-and-split (2026-07-06):** the rail packs whole screen groups into pages (~10 events/page), continuing with the next group on the same page. A group is never split just to fill a page (no orphaning one event onto a different page). Only a group that alone exceeds 10 events is sliced into clean 10-event chunks across consecutive pages (events stay together in order). Replaces the old paginate-flat-then-group, which split categories at arbitrary boundaries and could strand a single event under a repeated header.
+> **Pagination is dense-pack, orphan-safe (2026-07-06):** the rail greedily fills each page up to ~10 events, packing multiple categories per page and letting a large category backfill leftover space (pages don't sit half-empty). A category may span pages, but any split is guarded so neither side has fewer than `MIN_CHUNK=3` events — no single event is ever stranded from its group. Replaces both the old paginate-flat-then-group (stranded single events) and the interim keep-groups-whole approach (which left a big category alone on one page or under-filled the preceding page).
 
 ## API
 | Method | Path | Description |
