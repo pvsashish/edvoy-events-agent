@@ -461,41 +461,105 @@ function toDataUrl(file) {
   });
 }
 
-function extractVideoFrames(file, count = 3) {
+// Scene-change frame extraction. Instead of grabbing a fixed number of frames at
+// arbitrary times, densely sample the video and keep a frame only when the screen
+// meaningfully changes vs the last kept one — so we capture each distinct screen/state
+// in the flow (and skip loading/scrolling/dead time), not N evenly-spaced stills.
+// The count of frames is therefore driven by the video's content, with a safety cap
+// so a chaotic recording can't explode AI cost.
+function extractVideoFrames(file) {
+  const MAX_SAMPLES = 60;    // how many probe points we seek to (bounds processing time)
+  const MAX_KEEP    = 12;    // hard cap on frames sent to the AI (cost guard)
+  const DIFF_THRESH = 0.075; // normalised 0..1 mean pixel change that counts as "new screen"
+  const SW = 64, SH = 36;    // tiny canvas used only for the cheap difference check
+
   return new Promise(resolve => {
     const url   = URL.createObjectURL(file);
     const video = document.createElement('video');
-    video.preload = 'metadata';
+    video.preload = 'auto';
     video.muted   = true;
     video.src     = url;
 
+    const smallCanvas = document.createElement('canvas'); smallCanvas.width = SW; smallCanvas.height = SH;
+    const sctx = smallCanvas.getContext('2d', { willReadFrequently: true });
+    const fullCanvas = document.createElement('canvas');
+    const fctx = fullCanvas.getContext('2d');
+
+    const finish = frames => { URL.revokeObjectURL(url); resolve(frames); };
+
+    // Some containers (stream/MediaRecorder-recorded webm) report duration = Infinity until
+    // you seek past the end. Force the browser to compute the real duration first, then sample.
     video.addEventListener('loadedmetadata', () => {
-      const d = video.duration;
-      const times = Array.from({ length: count }, (_, i) =>
-        Math.min(d - 0.1, (d / (count + 1)) * (i + 1))
-      );
-      const frames = [];
+      if (isFinite(video.duration) && video.duration > 0) return startSampling(video.duration);
+      const onProbe = () => {
+        video.removeEventListener('seeked', onProbe);
+        const d = (isFinite(video.duration) && video.duration > 0) ? video.duration : video.currentTime;
+        const onBack = () => { video.removeEventListener('seeked', onBack); startSampling(d); };
+        video.addEventListener('seeked', onBack);
+        video.currentTime = 0;
+      };
+      video.addEventListener('seeked', onProbe);
+      video.currentTime = 1e7; // clamps to the true end, resolving duration
+    });
+
+    function startSampling(d) {
+      if (!(isFinite(d) && d > 0)) return finish([]); // unreadable; caller keeps videoUrl for playback
+
+      const samples = Math.max(2, Math.min(MAX_SAMPLES, Math.round(d / 0.5)));
+      const step    = d / samples;
+      const times   = Array.from({ length: samples }, (_, i) => Math.min(d - 0.05, step * i + step / 2));
+
+      const kept = [];   // dataUrls of frames we decided to keep
+      let last = null;   // downscaled RGB pixels of the last KEPT frame
       let idx = 0;
 
+      // Keep RGB (drop alpha) — a grayscale diff misses colour-only transitions
+      // (e.g. green→blue screens have near-identical luminance).
+      const sampleRGB = data => {
+        const g = new Uint8ClampedArray(SW * SH * 3);
+        for (let i = 0, p = 0; i < data.length; i += 4) { g[p++] = data[i]; g[p++] = data[i + 1]; g[p++] = data[i + 2]; }
+        return g;
+      };
+      const diff = (a, b) => {
+        let s = 0;
+        for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]);
+        return s / (a.length * 255); // 0..1 mean per-channel change
+      };
+
       const next = () => {
-        if (idx >= times.length) { URL.revokeObjectURL(url); resolve(frames); return; }
+        if (idx >= times.length) return done();
         video.currentTime = times[idx];
       };
 
       video.addEventListener('seeked', () => {
-        const c = document.createElement('canvas');
-        c.width  = video.videoWidth;
-        c.height = video.videoHeight;
-        c.getContext('2d').drawImage(video, 0, 0);
-        frames.push(c.toDataURL('image/jpeg', 0.85));
+        sctx.drawImage(video, 0, 0, SW, SH);
+        const cur = sampleRGB(sctx.getImageData(0, 0, SW, SH).data);
+        // Keep the first frame always; after that, only when the screen changed enough.
+        if (last === null || diff(cur, last) > DIFF_THRESH) {
+          fullCanvas.width  = video.videoWidth  || SW;
+          fullCanvas.height = video.videoHeight || SH;
+          fctx.drawImage(video, 0, 0);
+          kept.push(fullCanvas.toDataURL('image/jpeg', 0.85));
+          last = cur;
+        }
         idx++;
         next();
       });
 
-      next();
-    });
+      const done = () => {
+        let frames = kept;
+        // If the flow had more distinct screens than the cap, keep an even spread.
+        if (frames.length > MAX_KEEP) {
+          const stepK = (frames.length - 1) / (MAX_KEEP - 1);
+          frames = Array.from({ length: MAX_KEEP }, (_, i) => kept[Math.round(i * stepK)]);
+        }
+        finish(frames);
+      };
 
-    video.addEventListener('error', () => { URL.revokeObjectURL(url); resolve([]); });
+      next();
+    }
+
+    video.addEventListener('error', () => finish([]));
   });
 }
 
@@ -543,7 +607,7 @@ function AttachmentThumb({ item, onRemove, onPreview }) {
               <polygon points="5,3 19,12 5,21"/>
             </svg>
             <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.9)', marginTop: 2, fontWeight: 700 }}>
-              {item.frameCount} frames
+              {item.frameCount} frame{item.frameCount === 1 ? '' : 's'}
             </span>
           </div>
         </div>
@@ -593,10 +657,11 @@ function AttachmentPreviewModal({ items, index, onIndexChange, onClose }) {
     return () => document.removeEventListener('keydown', handler);
   }, [onClose, goPrev, goNext]);
 
-  const item    = items[index] || {};
-  const isVideo = item.type === 'video';
-  const frames  = isVideo ? (item.frames || []) : null;
-  const src     = isVideo ? frames[frameIdx] : item.dataUrl;
+  const item        = items[index] || {};
+  const isVideo     = item.type === 'video';
+  const frames      = isVideo ? (item.frames || []) : null;
+  const canPlayVideo = isVideo && !!item.videoUrl; // original video kept (generator session only)
+  const src         = isVideo ? frames[frameIdx] : item.dataUrl;
 
   const navBtnStyle = enabled => ({
     position: 'absolute', top: '50%', transform: 'translateY(-50%)', zIndex: 10,
@@ -647,12 +712,21 @@ function AttachmentPreviewModal({ items, index, onIndexChange, onClose }) {
           >›</button>
         )}
 
-        <img
-          src={src} alt={item.name}
-          style={{ maxWidth: '82vw', maxHeight: '74vh', borderRadius: 10, display: 'block', objectFit: 'contain' }}
-        />
+        {canPlayVideo ? (
+          <video
+            key={item.videoUrl} src={item.videoUrl}
+            controls autoPlay playsInline
+            style={{ maxWidth: '82vw', maxHeight: '74vh', borderRadius: 10, display: 'block', background: '#000' }}
+          />
+        ) : (
+          <img
+            src={src} alt={item.name}
+            style={{ maxWidth: '82vw', maxHeight: '74vh', borderRadius: 10, display: 'block', objectFit: 'contain' }}
+          />
+        )}
 
-        {isVideo && frames.length > 1 && (
+        {/* Frame strip is the still fallback (e.g. a saved-history video with no playable file) */}
+        {isVideo && !canPlayVideo && frames.length > 1 && (
           <div style={{ display: 'flex', gap: 6, marginTop: 10, justifyContent: 'center' }}>
             {frames.map((f, i) => (
               <img
@@ -671,7 +745,7 @@ function AttachmentPreviewModal({ items, index, onIndexChange, onClose }) {
         )}
 
         <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, textAlign: 'center', marginTop: 8 }}>
-          {item.name}{isVideo ? ` · Frame ${frameIdx + 1} of ${frames.length}` : ''}
+          {item.name}{isVideo ? (canPlayVideo ? ' · Video' : ` · Frame ${frameIdx + 1} of ${frames.length}`) : ''}
           {item.fromHistory ? ' · Saved attachment' : ''}
           {total > 1 ? ` · ${index + 1} of ${total}` : ''}
         </p>
@@ -1099,8 +1173,11 @@ function App() {
     const items = await Promise.all(list.map(async file => {
       const id = Math.random().toString(36).slice(2);
       if (file.type.startsWith('video/')) {
-        const frames = await extractVideoFrames(file, 3);
-        return { id, type: 'video', name: file.name, frames, thumb: frames[0] || null, frameCount: frames.length };
+        const frames = await extractVideoFrames(file);
+        // Keep the original video (cheap in-memory blob URL, session-only) so the preview
+        // lightbox can actually play it. Frames are still extracted for the AI pipeline.
+        const videoUrl = URL.createObjectURL(file);
+        return { id, type: 'video', name: file.name, frames, thumb: frames[0] || null, frameCount: frames.length, videoUrl };
       }
       const dataUrl = await toDataUrl(file);
       return { id, type: 'image', name: file.name, dataUrl };
@@ -1412,6 +1489,7 @@ function App() {
     setEvents(mapped);
 
     // Restore saved thumbnail if available (R2 URL preferred, legacy local cache as fallback)
+    attachments.forEach(a => a.videoUrl && URL.revokeObjectURL(a.videoUrl)); // free any live video blobs first
     const thumb = item.thumbnailUrl || historyThumbs[item.id];
     if (thumb) {
       const thumbAtt = [{ id: item.id + '_hist', type: 'image', name: 'Attachment (history)', dataUrl: thumb, fromHistory: true }];
@@ -1474,6 +1552,7 @@ function App() {
         analyzeAbortRef.current = null;
       }
       setEvents([]);
+      attachments.forEach(a => a.videoUrl && URL.revokeObjectURL(a.videoUrl));
       setAttachments([]);
       setGeneratedAttachments([]);
       setFeatureContext('');
@@ -2086,7 +2165,7 @@ function App() {
                       {attachments.map((a, idx) => (
                         <AttachmentThumb
                           key={a.id} item={a}
-                          onRemove={() => setAttachments(p => p.filter(x => x.id !== a.id))}
+                          onRemove={() => { if (a.videoUrl) URL.revokeObjectURL(a.videoUrl); setAttachments(p => p.filter(x => x.id !== a.id)); }}
                           onPreview={() => setPreview({ items: attachments, index: idx })}
                         />
                       ))}
