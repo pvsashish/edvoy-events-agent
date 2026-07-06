@@ -2978,23 +2978,34 @@ function App() {
                   </svg>
                 );
 
-                // ── Pagination (group-aware) ──────────────────────────
-                // Pack whole screen groups into pages (~PER_PAGE events/page) WITHOUT splitting
-                // a group across a page boundary — otherwise a large category's header repeats
-                // across pages showing only a partial slice (looked like a separate group).
-                // A single group larger than PER_PAGE simply owns its page in full.
+                // ── Pagination (pack-and-split) ───────────────────────
+                // Pack whole screen groups into pages (~PER_PAGE events/page), continuing with
+                // the next group on the same page. A group is never split just to fill a page
+                // (avoids orphaning one event from its category onto a different page). Only a
+                // group that alone exceeds PER_PAGE is sliced into clean PER_PAGE chunks across
+                // consecutive pages — its events still stay together in order, never a lone one.
                 const PER_PAGE = 10;
                 const pages = [];
                 let curPage = [];
                 let curCount = 0;
+                const flushPage = () => { if (curPage.length) { pages.push(curPage); curPage = []; curCount = 0; } };
                 for (const g of groups) {
-                  if (curPage.length && curCount + g.records.length > PER_PAGE) {
-                    pages.push(curPage); curPage = []; curCount = 0;
+                  // If this group won't fit in the space left on the current page, start a new page.
+                  if (curCount > 0 && curCount + g.records.length > PER_PAGE) flushPage();
+                  let recs = g.records;
+                  // Oversized group: emit full PER_PAGE-sized pages of it (current page is empty here).
+                  while (recs.length > PER_PAGE) {
+                    pages.push([{ screenName: g.screenName, records: recs.slice(0, PER_PAGE) }]);
+                    recs = recs.slice(PER_PAGE);
                   }
-                  curPage.push(g);
-                  curCount += g.records.length;
+                  // Remaining tail (≤ PER_PAGE) joins the current page; flush if it's now full.
+                  if (recs.length) {
+                    curPage.push({ screenName: g.screenName, records: recs });
+                    curCount += recs.length;
+                    if (curCount >= PER_PAGE) flushPage();
+                  }
                 }
-                if (curPage.length) pages.push(curPage);
+                flushPage();
 
                 const totalPages = Math.max(1, pages.length);
                 const safePage = Math.min(scoutPage, totalPages);
