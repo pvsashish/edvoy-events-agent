@@ -31,8 +31,8 @@ edvoy_screens (
 
 **bbox:** `[x, y, width, height]` in raw pixels of the screenshot. Always `[0,0,0,0]` for manually captured screenshots (highlight is drawn into the image itself). Scout skips rendering the overlay when `bbox[2] === 0`.
 
-## Current Categories (185 records total: 105 GA4 + 80 Amplitude)
-The table below is the original **GA4** set (105 records / 24 screens). **Amplitude** screens were added later (see note) and are not itemised here.
+## Current Categories (206 records total: 126 GA4 + 80 Amplitude)
+The table below is the original **GA4** set (105 records / 24 screens). **Amplitude** screens and later GA4 additions (Profile, Shortlist) were added afterwards (see notes) and are not all itemised here.
 
 | screenName (GA4) | Records |
 |---|---|
@@ -64,6 +64,10 @@ The table below is the original **GA4** set (105 records / 24 screens). **Amplit
 > **Note:** Country Page has 7 records (1 duplicate of `explore_universities_clicked` from a retry during ingestion). Intentionally kept — can be cleaned up later.
 
 > **Amplitude screens (80 records, `platform: amplitude`, `space: edvoy-student`):** ingested in later batches, incl. `Genie Banner` (3) and — added 2026-07-06 — **`Genie Banner Logged Out`** (3: `genie_banner_viewed_logged_out`, `genie_banner_clicked_logged_out`, `genie_banner_closed_logged_out`). CAT_COLOR entry for the new category was added in `public/app.jsx` (same purple as Genie Banner).
+
+> **Later GA4 additions (2026-07-06):** `Profile` (19 events) and `Shortlist` (2: `courses_under_shortlist_clicked`, `shortlist_tab_clicked`), `platform: ga4`, `space: edvoy-student`. Both categories already existed in `CAT_COLOR`/`GA4_CATEGORIES` (no code change needed). Event names kept verbatim from filenames incl. ` - 1`/` -2` suffixes.
+
+> **Pagination is group-aware (2026-07-06):** the rail packs whole screen groups into pages (~10 events/page, never splitting a group across a page boundary). Previously it sliced the flat event list 10/page then grouped, so a large category's header repeated across pages showing partial slices. A single group >10 events now owns its own page.
 
 ## API
 | Method | Path | Description |
