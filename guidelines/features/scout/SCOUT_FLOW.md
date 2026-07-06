@@ -31,8 +31,10 @@ edvoy_screens (
 
 **bbox:** `[x, y, width, height]` in raw pixels of the screenshot. Always `[0,0,0,0]` for manually captured screenshots (highlight is drawn into the image itself). Scout skips rendering the overlay when `bbox[2] === 0`.
 
-## Current Categories (105 records across 24 screens)
-| screenName | Records |
+## Current Categories (185 records total: 105 GA4 + 80 Amplitude)
+The table below is the original **GA4** set (105 records / 24 screens). **Amplitude** screens were added later (see note) and are not itemised here.
+
+| screenName (GA4) | Records |
 |---|---|
 | App | 2 |
 | Articles | 3 |
@@ -60,6 +62,8 @@ edvoy_screens (
 | Universities | 3 |
 
 > **Note:** Country Page has 7 records (1 duplicate of `explore_universities_clicked` from a retry during ingestion). Intentionally kept — can be cleaned up later.
+
+> **Amplitude screens (80 records, `platform: amplitude`, `space: edvoy-student`):** ingested in later batches, incl. `Genie Banner` (3) and — added 2026-07-06 — **`Genie Banner Logged Out`** (3: `genie_banner_viewed_logged_out`, `genie_banner_clicked_logged_out`, `genie_banner_closed_logged_out`). CAT_COLOR entry for the new category was added in `public/app.jsx` (same purple as Genie Banner).
 
 ## API
 | Method | Path | Description |
