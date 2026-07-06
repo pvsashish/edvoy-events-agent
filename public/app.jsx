@@ -2978,19 +2978,28 @@ function App() {
                   </svg>
                 );
 
-                // ── Pagination ────────────────────────────────────────
+                // ── Pagination (group-aware) ──────────────────────────
+                // Pack whole screen groups into pages (~PER_PAGE events/page) WITHOUT splitting
+                // a group across a page boundary — otherwise a large category's header repeats
+                // across pages showing only a partial slice (looked like a separate group).
+                // A single group larger than PER_PAGE simply owns its page in full.
                 const PER_PAGE = 10;
-                const totalPages = Math.max(1, Math.ceil(filteredResults.length / PER_PAGE));
-                const safePage = Math.min(scoutPage, totalPages);
-                const pageEvents = filteredResults.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE);
-
-                // Group current page events by screenName (preserve order)
-                const pageGroupMap = new Map();
-                for (const r of pageEvents) {
-                  if (!pageGroupMap.has(r.screenName)) pageGroupMap.set(r.screenName, []);
-                  pageGroupMap.get(r.screenName).push(r);
+                const pages = [];
+                let curPage = [];
+                let curCount = 0;
+                for (const g of groups) {
+                  if (curPage.length && curCount + g.records.length > PER_PAGE) {
+                    pages.push(curPage); curPage = []; curCount = 0;
+                  }
+                  curPage.push(g);
+                  curCount += g.records.length;
                 }
-                const pageGroups = [...pageGroupMap.entries()].map(([screenName, records]) => ({ screenName, records }));
+                if (curPage.length) pages.push(curPage);
+
+                const totalPages = Math.max(1, pages.length);
+                const safePage = Math.min(scoutPage, totalPages);
+                const pageGroups = pages[safePage - 1] || [];
+                const pageEventCount = pageGroups.reduce((n, g) => n + g.records.length, 0);
 
                 // Form factor from image dims
                 const formFactor = scoutImgDims.h > 0 && scoutImgDims.w > 0 && scoutImgDims.h > scoutImgDims.w ? 'mobile' : 'desktop';
@@ -3106,7 +3115,7 @@ function App() {
                       {/* Rail subheader */}
                       <div style={{ padding: '14px 18px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderBottom: '1px solid #E4E4EA', flexShrink: 0 }}>
                         <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#6B7280' }}>Events on screen</span>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, color: '#6B7280', background: '#F6F5F9', padding: '2px 8px', borderRadius: 5, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{pageEvents.length} of {filteredResults.length}</span>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, color: '#6B7280', background: '#F6F5F9', padding: '2px 8px', borderRadius: 5, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{pageEventCount} of {filteredResults.length}</span>
                       </div>
                       {/* Scrollable grouped list */}
                       <div className="scout-rail-list" style={{ flex: 1, minHeight: 0, overflowY: 'auto', height: 668 }}>
