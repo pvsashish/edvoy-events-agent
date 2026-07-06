@@ -1,5 +1,7 @@
 export function buildIdentifyPrompt(featureContext = '') {
-  const context = featureContext ? `Feature context provided by PM: ${featureContext}\n\n` : '';
+  const context = featureContext
+    ? `Feature context provided by PM: "${featureContext}"\n\nUse this context to interpret the screen: when a control is ambiguous, read it as part of this flow, and prioritise interactions that matter to this flow. Do not invent interactions the screenshot does not show just to fit the context.\n\n`
+    : '';
 
   return `${context}You are analyzing a UI screenshot to identify every distinct user interaction worth tracking analytically.
 

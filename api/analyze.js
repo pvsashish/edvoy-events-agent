@@ -27,7 +27,7 @@ export default async function handler(req, res) {
     const interactions = await identifyInteractions(images, featureContext, usageLog);
 
     // Step 2: Match — do any of those interactions already have event names?
-    const resolvedNames = await matchInteractions(interactions, sheetData, crossData, sessionEvents, usageLog);
+    const resolvedNames = await matchInteractions(interactions, sheetData, crossData, sessionEvents, featureContext, usageLog);
 
     // Step 3: Generate — produce the full spec with pre-matched names + params as hard constraints
     let events = await generateSpec(images, platform, featureContext, interactions, resolvedNames, sheetData, crossData, usageLog);
@@ -189,7 +189,7 @@ async function identifyInteractions(images, featureContext, usageLog) {
 
 // ─── Step 2: Match interactions to existing event names ──────────────────────
 
-async function matchInteractions(interactions, sheetData, crossData, sessionEvents, usageLog) {
+async function matchInteractions(interactions, sheetData, crossData, sessionEvents, featureContext, usageLog) {
   if (!interactions.length) return {};
 
   const referenceNames = [
@@ -201,7 +201,7 @@ async function matchInteractions(interactions, sheetData, crossData, sessionEven
   const unique = [...new Set(referenceNames)];
   if (unique.length === 0) return {};
 
-  const prompt = buildMatchPrompt(interactions, unique);
+  const prompt = buildMatchPrompt(interactions, unique, featureContext);
 
   try {
     const { text: raw, usage } = await anthropicWithRetry({ user: prompt });
@@ -222,7 +222,9 @@ async function generateSpec(images, platform, featureContext, interactions, reso
     ? buildGA4Prompt(sheetData || null, crossData || null, resolvedNames)
     : buildAMPPrompt(sheetData || null, crossData || null, resolvedNames);
 
-  const contextText = featureContext ? `Feature context: ${featureContext}\n\n` : '';
+  const contextText = featureContext
+    ? `Feature context: "${featureContext}"\nInterpret this screen as part of that flow. For NEW events/parameters (ones not already in the tracking sheet), name them to reflect this flow. This must NOT override any event/parameter listed under KNOWN PARAMETERS below — those stay exactly as given.\n\n`
+    : '';
   const interactionContext = interactions.length > 0
     ? `Identified interactions on this screen:\n${interactions.map((x, i) => `${i + 1}. ${x}`).join('\n')}\n\n`
     : '';

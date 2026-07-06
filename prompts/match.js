@@ -1,5 +1,8 @@
-export function buildMatchPrompt(interactions, referenceNames) {
-  return `You are matching UI interactions to existing analytics event names.
+export function buildMatchPrompt(interactions, referenceNames, featureContext = '') {
+  const context = featureContext
+    ? `Feature context provided by PM: "${featureContext}"\nUse this ONLY to break ties when several existing events look equally plausible — prefer the one that fits this flow. It does NOT relax the null rule: if no existing event involves the same object, still return null.\n\n`
+    : '';
+  return `${context}You are matching UI interactions to existing analytics event names.
 
 For each interaction below, decide if an existing event name already tracks that same user action on the same UI object. The reference list is the source of truth — strongly prefer reusing an existing name over leaving it unmatched.
 

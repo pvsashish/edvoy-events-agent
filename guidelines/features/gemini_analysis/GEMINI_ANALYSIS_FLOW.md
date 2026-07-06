@@ -32,6 +32,14 @@ Produces the full tracking spec. Pre-matched names from Step 2 are injected as h
 - Prompt: `prompts/ga4.js` or `prompts/amplitude.js` (with `resolvedNames` parameter)
 - Returns: full events array
 
+## Feature Context (optional PM input)
+The **Feature Context** textarea in the generator (`featureContext` in the request body) lets a PM name the user flow (e.g. `"Counsellor booking flow"`) to steer interpretation. It is threaded into **all three steps** — but only when non-empty (blank = pipeline behaves exactly as if the field didn't exist, zero change):
+- **Step 1 (identify):** directs the model to read ambiguous controls as part of the named flow and prioritise interactions that matter to it (without inventing ones the screenshot doesn't show).
+- **Step 2 (match):** used ONLY as a tie-breaker when several existing events look equally plausible — it does **not** relax the null rule (no forced false matches).
+- **Step 3 (generate):** directs the model to name **new** events/params to reflect the flow.
+
+**Accuracy boundary (important):** feature context never overrides the "KNOWN PARAMETERS FOR MATCHED EVENTS — MANDATORY" block. Sheet-matched events + their params always stay verbatim; context only bends the new/ambiguous stuff. Verified 2026-07-06: same screenshot with a synced sheet containing `book_now_clicked(counsellor_id, slot_time)` + context ON → the matched event stayed verbatim while unmatched events picked up flow-aware naming.
+
 ## Cross-Platform Consistency
 When the user generates GA4 first and then switches to Amplitude (or vice versa), the frontend passes the already-generated events as `sessionEvents` in the request body. Step 2 includes these in its reference pool, so the new platform reuses the same event names instead of inventing new ones.
 
