@@ -572,17 +572,42 @@ function AttachmentThumb({ item, onRemove, onPreview }) {
   );
 }
 
-function AttachmentPreviewModal({ item, onClose }) {
+function AttachmentPreviewModal({ items, index, onIndexChange, onClose }) {
   const [frameIdx, setFrameIdx] = React.useState(0);
+  const total   = items.length;
+  const hasPrev = index > 0;
+  const hasNext = index < total - 1;
+  const goPrev  = React.useCallback(() => { if (index > 0) onIndexChange(index - 1); }, [index, onIndexChange]);
+  const goNext  = React.useCallback(() => { if (index < total - 1) onIndexChange(index + 1); }, [index, total, onIndexChange]);
+
+  // Reset video frame position whenever we move to a different attachment.
+  React.useEffect(() => { setFrameIdx(0); }, [index]);
+
   React.useEffect(() => {
-    const handler = e => { if (e.key === 'Escape') onClose(); };
+    const handler = e => {
+      if (e.key === 'Escape') onClose();
+      else if (e.key === 'ArrowLeft') goPrev();
+      else if (e.key === 'ArrowRight') goNext();
+    };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [onClose]);
+  }, [onClose, goPrev, goNext]);
 
+  const item    = items[index] || {};
   const isVideo = item.type === 'video';
   const frames  = isVideo ? (item.frames || []) : null;
   const src     = isVideo ? frames[frameIdx] : item.dataUrl;
+
+  const navBtnStyle = enabled => ({
+    position: 'absolute', top: '50%', transform: 'translateY(-50%)', zIndex: 10,
+    width: 42, height: 42, borderRadius: '50%',
+    background: 'rgba(255,255,255,0.14)', color: '#fff',
+    border: '1.5px solid rgba(255,255,255,0.3)',
+    fontSize: 20, lineHeight: 1, cursor: enabled ? 'pointer' : 'not-allowed',
+    opacity: enabled ? 1 : 0.25,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    transition: 'opacity 0.15s, background 0.15s',
+  });
 
   return (
     <div
@@ -606,6 +631,21 @@ function AttachmentPreviewModal({ item, onClose }) {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >✕</button>
+
+        {total > 1 && (
+          <button
+            onClick={goPrev} disabled={!hasPrev} aria-label="Previous image"
+            title="Previous (←)"
+            style={{ ...navBtnStyle(hasPrev), left: -54 }}
+          >‹</button>
+        )}
+        {total > 1 && (
+          <button
+            onClick={goNext} disabled={!hasNext} aria-label="Next image"
+            title="Next (→)"
+            style={{ ...navBtnStyle(hasNext), right: -54 }}
+          >›</button>
+        )}
 
         <img
           src={src} alt={item.name}
@@ -633,6 +673,7 @@ function AttachmentPreviewModal({ item, onClose }) {
         <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, textAlign: 'center', marginTop: 8 }}>
           {item.name}{isVideo ? ` · Frame ${frameIdx + 1} of ${frames.length}` : ''}
           {item.fromHistory ? ' · Saved attachment' : ''}
+          {total > 1 ? ` · ${index + 1} of ${total}` : ''}
         </p>
       </div>
     </div>
@@ -859,8 +900,8 @@ function App() {
   // History thumbnails stored in localStorage only (not in DB)
   const [historyThumbs, setHistoryThumbs]     = useState(() => { try { return JSON.parse(localStorage.getItem('edvoy_history_thumbs') || '{}'); } catch { return {}; } });
 
-  // Attachment preview lightbox
-  const [previewAttachment, setPreviewAttachment] = useState(null);
+  // Attachment preview lightbox — holds { items: [...], index } (null = closed)
+  const [preview, setPreview] = useState(null);
 
   const fileRef                            = useRef();
   const resultsRef                         = useRef();
@@ -2042,11 +2083,11 @@ function App() {
                   {/* Attachment Previews */}
                   {attachments.length > 0 && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-                      {attachments.map(a => (
+                      {attachments.map((a, idx) => (
                         <AttachmentThumb
                           key={a.id} item={a}
                           onRemove={() => setAttachments(p => p.filter(x => x.id !== a.id))}
-                          onPreview={setPreviewAttachment}
+                          onPreview={() => setPreview({ items: attachments, index: idx })}
                         />
                       ))}
                     </div>
@@ -2558,7 +2599,15 @@ function App() {
                               <img
                                 src={item.thumbnailUrl || historyThumbs[item.id]}
                                 alt=""
-                                style={{ width: 60, height: 38, objectFit: 'cover', borderRadius: 6, border: `1px solid ${T.border}`, flexShrink: 0, display: 'block' }}
+                                title="Click to preview"
+                                onClick={(e) => {
+                                  e.stopPropagation(); // don't also load the spec into the generator
+                                  const withImg = visibleHistory.filter(h => h.thumbnailUrl || historyThumbs[h.id]);
+                                  const idx = withImg.findIndex(h => h.id === item.id);
+                                  const imgList = withImg.map(h => ({ name: h.name, dataUrl: h.thumbnailUrl || historyThumbs[h.id], type: 'image', fromHistory: true }));
+                                  setPreview({ items: imgList, index: Math.max(0, idx) });
+                                }}
+                                style={{ width: 60, height: 38, objectFit: 'cover', borderRadius: 6, border: `1px solid ${T.border}`, flexShrink: 0, display: 'block', cursor: 'zoom-in' }}
                               />
                             )}
                             <button
@@ -3088,10 +3137,12 @@ function App() {
         </div>
       </main>
 
-      {previewAttachment && (
+      {preview && preview.items[preview.index] && (
         <AttachmentPreviewModal
-          item={previewAttachment}
-          onClose={() => setPreviewAttachment(null)}
+          items={preview.items}
+          index={preview.index}
+          onIndexChange={(i) => setPreview(p => ({ ...p, index: i }))}
+          onClose={() => setPreview(null)}
         />
       )}
     </div>

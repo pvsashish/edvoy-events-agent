@@ -80,6 +80,7 @@ Before modifying:
 ## Change Log
 | Date | Change | Author |
 |------|--------|--------|
+| 2026-07-06 | History thumbnails are now clickable → open the shared image-preview lightbox (prev/next across all history items with a thumbnail; `stopPropagation` so the click doesn't also load the spec). See "Image Preview Lightbox" in FEATURES_INDEX. | session |
 | 2026-07-03 | Thumbnails moved to Cloudflare R2 (`history/<id>`); added PATCH for self-healing client-side migration of pre-existing localStorage-only thumbnails | session |
 | 2026-07-03 | Scoped by Space (`edvoy-student`/`edvoy-connect`); `clearAll` accepts optional `space` | session |
 | 2026-06-08 | Added delete individual + clearAll support | session |
