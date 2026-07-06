@@ -31,7 +31,7 @@ edvoy_screens (
 
 **bbox:** `[x, y, width, height]` in raw pixels of the screenshot. Always `[0,0,0,0]` for manually captured screenshots (highlight is drawn into the image itself). Scout skips rendering the overlay when `bbox[2] === 0`.
 
-## Current Categories (206 records total: 126 GA4 + 80 Amplitude)
+## Current Categories (213 records total: 133 GA4 + 80 Amplitude)
 The table below is the original **GA4** set (105 records / 24 screens). **Amplitude** screens and later GA4 additions (Profile, Shortlist) were added afterwards (see notes) and are not all itemised here.
 
 | screenName (GA4) | Records |
@@ -66,6 +66,8 @@ The table below is the original **GA4** set (105 records / 24 screens). **Amplit
 > **Amplitude screens (80 records, `platform: amplitude`, `space: edvoy-student`):** ingested in later batches, incl. `Genie Banner` (3) and — added 2026-07-06 — **`Genie Banner Logged Out`** (3: `genie_banner_viewed_logged_out`, `genie_banner_clicked_logged_out`, `genie_banner_closed_logged_out`). CAT_COLOR entry for the new category was added in `public/app.jsx` (same purple as Genie Banner).
 
 > **Later GA4 additions (2026-07-06):** `Profile` (19 events) and `Shortlist` (2: `courses_under_shortlist_clicked`, `shortlist_tab_clicked`), `platform: ga4`, `space: edvoy-student`. Both categories already existed in `CAT_COLOR`/`GA4_CATEGORIES` (no code change needed). Event names kept verbatim from filenames incl. ` - 1`/` -2` suffixes.
+
+> **More GA4 additions (2026-07-07):** `Country Story` (4: viewed/clicked/explore_clicked/know_more_clicked), `Course Card` (1: `course_card_clicked`), `Institution Card` (1: `university_card_clicked`), `Trending Subjects` (1: `trending_subject_clicked`) — `platform: ga4`, `space: edvoy-student`. New `CAT_COLOR` entries added for all four in `public/app.jsx`.
 
 > **Pagination is dense-pack, orphan-safe (2026-07-06):** the rail greedily fills each page up to ~10 events, packing multiple categories per page and letting a large category backfill leftover space (pages don't sit half-empty). A category may span pages, but any split is guarded so neither side has fewer than `MIN_CHUNK=3` events — no single event is ever stranded from its group. Replaces both the old paginate-flat-then-group (stranded single events) and the interim keep-groups-whole approach (which left a big category alone on one page or under-filled the preceding page).
 
