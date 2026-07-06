@@ -1,8 +1,7 @@
 # AI Analysis Flow (Anthropic Claude Sonnet 4.6)
 
-**Last updated:** 2026-06-30 (Anthropic Sonnet 4.6 only; Groq + Gemini removed; per-generate + cumulative cost tracking)
+**Last updated:** 2026-07-06 (renamed from GEMINI_ANALYSIS_FLOW.md → ANALYSIS_FLOW.md; Anthropic Sonnet 4.6 only; Groq + Gemini removed; feature-context steering)
 **Status:** active
-_(Filename kept as GEMINI_ANALYSIS_FLOW.md to avoid breaking doc links; the pipeline is Anthropic-only as of 2026-06-30.)_
 
 ## What It Does
 3-step pipeline that receives base64 image(s) + platform + optional context from the frontend, runs them through Anthropic Claude Sonnet 4.6 (`claude-sonnet-4-6`, temperature 0), and returns a normalised JSON array of analytics events matching the tracking sheet format, plus a `usage` object (token counts + $ cost across all 3 calls). Sonnet follows the sheet's reuse/casing rules much more closely than the prior Groq model.

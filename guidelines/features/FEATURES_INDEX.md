@@ -8,8 +8,8 @@
 | Video Upload + Frame Extraction | [UPLOAD_FLOW.md](upload/UPLOAD_FLOW.md) | complete | `public/app.jsx` (extractVideoFrames) |
 | GA4 / Amplitude Toggle | — | complete | `public/app.jsx`, `prompts/ga4.js`, `prompts/amplitude.js` |
 | Feature Context Input | — | complete | `public/app.jsx` |
-| AI Analysis (3-step pipeline) | [GEMINI_ANALYSIS_FLOW.md](gemini_analysis/GEMINI_ANALYSIS_FLOW.md) (legacy filename) | complete | `api/analyze.js`, `prompts/*` — **Anthropic Claude Sonnet 4.6 only, temperature 0**. Reuse-before-inventing, matched-event param hints, no screen-view events, dedup. `from`-as-minimum is **GA4-only** — Amplitude properties are optional and `from` is hard-filtered server-side. Returns `usage` (tokens + $ cost) → per-generate cost chip + cumulative API Usage card in sidebar (localStorage-persisted). Groq + Gemini removed 2026-06-30 |
-| Cross-Platform Consistency | [GEMINI_ANALYSIS_FLOW.md](gemini_analysis/GEMINI_ANALYSIS_FLOW.md) | complete | `api/analyze.js` (sessionEvents), `public/app.jsx` (eventsPlatform state) |
+| AI Analysis (3-step pipeline) | [ANALYSIS_FLOW.md](analysis_pipeline/ANALYSIS_FLOW.md) | complete | `api/analyze.js`, `prompts/*` — **Anthropic Claude Sonnet 4.6 only, temperature 0**. Reuse-before-inventing, matched-event param hints, no screen-view events, dedup. `from`-as-minimum is **GA4-only** — Amplitude properties are optional and `from` is hard-filtered server-side. Returns `usage` (tokens + $ cost) → per-generate cost chip + cumulative API Usage card in sidebar (localStorage-persisted). Groq + Gemini removed 2026-06-30 |
+| Cross-Platform Consistency | [ANALYSIS_FLOW.md](analysis_pipeline/ANALYSIS_FLOW.md) | complete | `api/analyze.js` (sessionEvents), `public/app.jsx` (eventsPlatform state) |
 | Events Table Output | — | complete | `public/app.jsx` |
 | Inline Table Editing | — | complete | `public/app.jsx` (handleCellChange) |
 | Copy as TSV | — | complete | `public/app.jsx` (copyTsv) |
@@ -24,7 +24,7 @@
 | Duplicate Generation Prevention | — | complete | `public/app.jsx` (generatedAttachments state lock + eventsPlatform check) |
 | File Type Validation | [UPLOAD_FLOW.md](upload/UPLOAD_FLOW.md) | complete | `public/app.jsx` (addFiles — MIME + extension fallback) |
 | Mobile Responsive Layout | — | complete | `public/index.html` (hamburger nav, single-col grid ≤768px), `public/app.jsx` (`<main>` needs `minWidth:0` as a flex child — protects every tab, not just Scout). Fixed 2026-07-03: a global `aside { transform: translateX(-100%) }` rule meant only for the nav drawer was also hijacking Scout's unrelated `<aside>` (event rail), shoving it off-screen on mobile/tablet — rescoped to `.app-sidebar`. Scout's canvas+rail grid now stacks below 768px (`minmax(0,1fr)`, not bare `1fr` — the latter still respects content's min-width). |
-| Sample Value Normalisation | [GEMINI_ANALYSIS_FLOW.md](gemini_analysis/GEMINI_ANALYSIS_FLOW.md) | complete | `api/analyze.js` (is_clicked → true/false, *_id → dynamic value) |
+| Sample Value Normalisation | [ANALYSIS_FLOW.md](analysis_pipeline/ANALYSIS_FLOW.md) | complete | `api/analyze.js` (is_clicked → true/false, *_id → dynamic value) |
 | TrackingSheets Cards | — | complete | `public/app.jsx` (`TrackingSheetCard` component) — compact single-row card with provider logo, connected dot, icon-only Edit + Re-sync buttons, hover lift. Wired to existing `syncSheet` / `sheetConfig` state. |
 | Manrope / Inter font system | — | complete | `public/index.html` — Manrope for headings/labels/display, Inter for buttons/nav/body. `--font-display: Manrope`, `--font-body: Inter`. |
 | Scout — Event Map | [SCOUT_FLOW.md](scout/SCOUT_FLOW.md) | complete | `api/screens.js`, `api/db.js`, `public/app.jsx` — 182 events across 35 screens (105 GA4 + 77 Amplitude), all `edvoy-student` space. Unified card (in-memory search, pagination, copy button, auto-fit canvas), images on Cloudflare R2, scoped by Space. |
