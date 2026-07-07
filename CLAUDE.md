@@ -32,9 +32,16 @@ Key files:
 
 ---
 
-## Current State (as of 2026-07-03, last commit bfdc39d)
+## Current State (as of 2026-07-07, last commit 7a47e6b)
 
 No open blockers. DB lives in its own dedicated Neon project (`edvoy-events-agent`, not shared with any other tool). Scout images are on Cloudflare R2, not Neon — the old base64-in-Postgres transfer problem is permanently gone.
+
+### Recent (2026-07-07)
+- **Scout: 213 events / 42 screens** (133 GA4 + 80 Amplitude), all `edvoy-student`. Latest ingests: Genie Banner Logged Out, Profile, Shortlist, Country Story, Course Card, Institution Card, Trending Subjects.
+- **Scout search** normalized + word-order-independent (strips spaces/hyphens/underscores; every query word must appear in the screen or a single event name). **Clear** button next to Search resets query + results + canvas.
+- **Scout selection:** click an event to select, click again to deselect (toggle); "No event selected" empty state. **Pagination** is dense-pack + orphan-safe (~10/page, never strands <3 of a category).
+- **API Usage counter is now DB-persisted** (`edvoy_usage` table + `api/usage.js`) — survives cache clears, consistent across devices; localStorage is just an offline cache. Was localStorage-only.
+- **Feature Context** field now actually steers the pipeline (all 3 steps); **video** attachments play in the lightbox + **scene-change frame extraction** (content-driven count, not fixed 3).
 
 ### Platform toggle follows connected sheets (2026-07-06)
 GA4/Amplitude toggle is gated on connection for the active Space: only a platform whose tracking sheet has synced `data` (`sheetConfig[space]?.[p]?.data`) is enabled. One connected → auto-selected + other hard-disabled; both → user picks; neither → both disabled + Generate blocked with a hint. Auto-select `useEffect` deps exclude `platform` so history restore isn't clobbered. All `public/app.jsx`.
@@ -63,7 +70,7 @@ DB moved out of the shared `reddit-tool-staging` Neon project into its own (`edv
 
 ### What's built and working
 - **Scout workspace**: unified card (header + canvas + event rail + footer), in-memory search, platform toggle (GA4/AMP), screen grouping, 10-per-page pagination, copy-to-clipboard per row, auto-fit canvas, form-factor chip. Images served from R2 CDN.
-- **Scout data**: 105 events across 24 screens (all GA4, Amplitude pending)
+- **Scout data**: 213 events across 42 screens (133 GA4 + 80 Amplitude)
 - **Event Generator**: Space switcher (Student/Connect) + Specs History + Naming Converter + Tracking Sheet sync — all working
 
 ---
@@ -79,11 +86,11 @@ DB moved out of the shared `reddit-tool-staging` Neon project into its own (`edv
 
 **screenName must exactly match a `CAT_COLOR` key in `public/app.jsx` (~line 86).** Adding a new category = add it to CAT_COLOR first.
 
-**Current 24 screens:** App, Articles, Career, City Page, Compare, Compare page, Contact, Country Page, Course Shortlist, Courses, Events, Exams, FAQs, Footer Menu, Header Menu, Homepage, IELTS Page, LP3 and LP4, Office Location Pages, Results, Search, Subject Page, Testimonials, Universities
+**Current: 42 screens, 213 records (133 GA4 + 80 Amplitude), all `edvoy-student`.** Full per-category breakdown + change log in `guidelines/features/scout/SCOUT_FLOW.md` (source of truth for counts).
 
 **Country Page has 7 records** (1 duplicate `explore_universities_clicked` from a retry) — intentionally kept, clean up later.
 
-**Amplitude events:** not yet ingested. AMP tab in Scout is built and will activate automatically when Amplitude records exist.
+**Amplitude events:** ingested (80 records — Genie, Onboarding, Login/Sign-up, Settings, Logout, Stand-by, App Update, Genie Banner(+Logged Out), etc.). AMP tab in Scout is active.
 
 ---
 
