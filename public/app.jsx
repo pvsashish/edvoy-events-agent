@@ -60,13 +60,10 @@ const GA4_CATEGORIES = [
   'Meet',
   'Office Location Pages',
   'One Tap Signup',
-  'Profile',
-  'Refer and Earn',
   'Referral',
   'Results',
   'Search',
   'Search Filter',
-  'Shortlist',
   'Subject Page',
   'Testimonials',
   'Universities'
@@ -74,13 +71,20 @@ const GA4_CATEGORIES = [
 
 const AMPLITUDE_CATEGORIES = [
   'App Update Screen',
+  'Country Story',
+  'Course Card',
   'Course Page',
   'Genie Banner',
+  'Institution Card',
   'Login or Sign-up Flow',
   'Meet',
   'Onboarding Screen',
+  'Profile',
+  'Refer and Earn',
   'Settings',
-  'Stand-by Flow'
+  'Shortlist',
+  'Stand-by Flow',
+  'Trending Subjects'
 ];
 
 // Which Edvoy space a tracking sheet / spec / history item belongs to.
