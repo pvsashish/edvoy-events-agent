@@ -818,6 +818,8 @@ function App() {
   const [scoutSearched, setScoutSearched]  = useState(false);
   const [scoutImgDims, setScoutImgDims]    = useState({ w: 1, h: 1 });
   const [scoutImgLoading, setScoutImgLoading] = useState(false);
+  const [scoutCanvasLoading, setScoutCanvasLoading] = useState(false); // spinner while the canvas screenshot loads
+  const scoutPrefetchedRef = useRef(new Set());                        // R2 urls already warmed (hover prefetch)
   const [scoutLastSearchQuery, setScoutLastSearchQuery] = useState('');
   const [scoutDisplayedImage, setScoutDisplayedImage] = useState(null);
   const [scoutPlatformFilter, setScoutPlatformFilter] = useState('all');
@@ -936,6 +938,16 @@ function App() {
   useEffect(() => {
     if (scoutSelected?.image) setScoutDisplayedImage(scoutSelected.image);
   }, [scoutSelected?.image]);
+
+  // Show the canvas loading spinner while a newly-selected screenshot downloads. If the
+  // image is already in the browser cache (e.g. hover-prefetched or previously viewed),
+  // the <img> is `complete` immediately, so skip the spinner to avoid a needless flash.
+  useEffect(() => {
+    if (!scoutSelected?.image) { setScoutCanvasLoading(false); return; }
+    const img = scoutImgRef.current;
+    const cached = img && img.src === scoutSelected.image && img.complete && img.naturalWidth > 0;
+    setScoutCanvasLoading(!cached);
+  }, [scoutSelected?.id]);
 
   // Reset dims on screen change, then check if cached image already loaded
   useEffect(() => {
@@ -3188,9 +3200,40 @@ function App() {
                             src={scoutDisplayedImage}
                             alt={scoutSelected?.screenName}
                             ref={scoutImgRef}
-                            style={{ maxWidth: '100%', maxHeight: '656px', width: 'auto', height: 'auto', objectFit: 'contain', display: 'block', borderRadius: 24, boxShadow: '0 28px 60px -10px rgba(50,30,90,.22), 0 2px 6px rgba(15,15,20,.06)', opacity: scoutImgLoading && !scoutSelected?.image ? 0.4 : 1, transition: 'opacity 0.2s' }}
-                            onLoad={(e) => setScoutImgDims({ w: e.target.naturalWidth || 1, h: e.target.naturalHeight || 1 })}
+                            style={{ maxWidth: '100%', maxHeight: '656px', width: 'auto', height: 'auto', objectFit: 'contain', display: 'block', borderRadius: 24, boxShadow: '0 28px 60px -10px rgba(50,30,90,.22), 0 2px 6px rgba(15,15,20,.06)', opacity: scoutCanvasLoading ? 0.35 : 1, filter: scoutCanvasLoading ? 'blur(1.5px)' : 'none', transition: 'opacity 0.25s, filter 0.25s' }}
+                            onLoad={(e) => { setScoutImgDims({ w: e.target.naturalWidth || 1, h: e.target.naturalHeight || 1 }); setScoutCanvasLoading(false); }}
+                            onError={() => setScoutCanvasLoading(false)}
                           />
+                        )}
+                        {/* Loading state while the selected screenshot downloads. Dims the
+                            lingering previous image, sweeps a shimmer across it, and shows a
+                            branded gradient ring — on-brand with the Scout canvas. */}
+                        {scoutDisplayedImage && scoutCanvasLoading && (
+                          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', borderRadius: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                            {/* shimmer sweep */}
+                            <div style={{
+                              position: 'absolute', top: 0, bottom: 0, width: '55%',
+                              background: 'linear-gradient(100deg, transparent 0%, rgba(255,255,255,0.55) 50%, transparent 100%)',
+                              animation: 'scoutShimmer 1.35s cubic-bezier(0.4,0,0.2,1) infinite',
+                            }} />
+                            {/* branded loader pill */}
+                            <div style={{
+                              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+                              padding: '18px 22px', borderRadius: 18,
+                              background: 'rgba(255,255,255,0.72)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+                              boxShadow: '0 8px 30px -8px rgba(80,40,140,0.28), 0 0 0 1px rgba(124,58,237,0.08)',
+                            }}>
+                              {/* gradient conic ring */}
+                              <div style={{
+                                width: 38, height: 38, borderRadius: '50%',
+                                background: 'conic-gradient(from 0deg, rgba(124,58,237,0) 0deg, #A855F7 140deg, #7C3AED 320deg)',
+                                WebkitMask: 'radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px))',
+                                mask: 'radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px))',
+                                animation: 'spin 0.85s cubic-bezier(0.5,0.1,0.5,0.9) infinite',
+                              }} />
+                              <span style={{ fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: 700, letterSpacing: '.01em', color: '#6D28D9', animation: 'scoutPulse 1.4s ease-in-out infinite' }}>Loading Screenshot</span>
+                            </div>
+                          </div>
                         )}
                         {/* Red highlight box */}
                         {scoutSelected?.image && scoutActiveEvent?.bbox && scoutActiveEvent.bbox[2] > 0 && scoutImgDims.w > 0 && (
@@ -3239,7 +3282,16 @@ function App() {
                                         if (s.id === scoutSelected?.id) { clearScoutSelection(); }
                                         else { setScoutSelected(s); setScoutActiveEvent(s.events?.[0] || null); }
                                       }}
-                                      onMouseEnter={() => setScoutHoveredId(s.id)}
+                                      onMouseEnter={() => {
+                                        setScoutHoveredId(s.id);
+                                        // Warm the screenshot in the browser cache before the click,
+                                        // so selecting it feels instant. Deduped so we fetch once.
+                                        if (s.image && !scoutPrefetchedRef.current.has(s.image)) {
+                                          scoutPrefetchedRef.current.add(s.image);
+                                          const im = new Image();
+                                          im.src = s.image;
+                                        }
+                                      }}
                                       onMouseLeave={() => setScoutHoveredId(null)}
                                       style={{
                                         display: 'flex', alignItems: 'center', gap: 10,

@@ -131,6 +131,16 @@
       to   { transform: rotate(360deg); }
     }
 
+    /* Scout canvas loading: shimmer sweep across the loading screenshot + soft label pulse */
+    @keyframes scoutShimmer {
+      0%   { transform: translateX(-130%) skewX(-14deg); }
+      100% { transform: translateX(130%)  skewX(-14deg); }
+    }
+    @keyframes scoutPulse {
+      0%, 100% { opacity: 0.5; }
+      50%      { opacity: 1; }
+    }
+
     /* Premium Animation system extensions */
     .sidebar-nav-btn {
       position: relative;
