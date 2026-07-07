@@ -37,7 +37,7 @@ Key files:
 No open blockers. DB lives in its own dedicated Neon project (`edvoy-events-agent`, not shared with any other tool). Scout images are on Cloudflare R2, not Neon — the old base64-in-Postgres transfer problem is permanently gone.
 
 ### Recent (2026-07-07)
-- **Scout: 227 events / 43 screens** (147 GA4 + 80 Amplitude), all `edvoy-student`. Latest ingests: Genie Banner Logged Out, Profile, Shortlist, Country Story, Course Card, Institution Card, Trending Subjects, Refer and Earn.
+- **Scout: 227 events / 43 screens** (105 GA4 + 122 Amplitude), all `edvoy-student`. Latest ingests: Genie Banner Logged Out, Profile, Shortlist, Country Story, Course Card, Institution Card, Trending Subjects, Refer and Earn.
 - **Scout canvas images**: hover-prefetch (warms a row's screenshot on hover) + branded loading animation (shimmer + purple gradient ring + "Loading Screenshot") while a not-yet-cached R2 image downloads.
 - **Scout search** normalized + word-order-independent (strips spaces/hyphens/underscores; every query word must appear in the screen or a single event name). **Clear** button next to Search resets query + results + canvas.
 - **Scout selection:** click an event to select, click again to deselect (toggle); "No event selected" empty state. **Pagination** is dense-pack + orphan-safe (~10/page, never strands <3 of a category).
@@ -71,7 +71,7 @@ DB moved out of the shared `reddit-tool-staging` Neon project into its own (`edv
 
 ### What's built and working
 - **Scout workspace**: unified card (header + canvas + event rail + footer), in-memory search, platform toggle (GA4/AMP), screen grouping, 10-per-page pagination, copy-to-clipboard per row, auto-fit canvas, form-factor chip. Images served from R2 CDN.
-- **Scout data**: 227 events across 43 screens (147 GA4 + 80 Amplitude)
+- **Scout data**: 227 events across 43 screens (105 GA4 + 122 Amplitude)
 - **Event Generator**: Space switcher (Student/Connect) + Specs History + Naming Converter + Tracking Sheet sync — all working
 
 ---
@@ -87,7 +87,7 @@ DB moved out of the shared `reddit-tool-staging` Neon project into its own (`edv
 
 **screenName must exactly match a `CAT_COLOR` key in `public/app.jsx` (~line 86).** Adding a new category = add it to CAT_COLOR first.
 
-**Current: 43 screens, 227 records (147 GA4 + 80 Amplitude), all `edvoy-student`.** Full per-category breakdown + change log in `guidelines/features/scout/SCOUT_FLOW.md` (source of truth for counts).
+**Current: 43 screens, 227 records (105 GA4 + 122 Amplitude), all `edvoy-student`.** Full per-category breakdown + change log in `guidelines/features/scout/SCOUT_FLOW.md` (source of truth for counts).
 
 **Country Page has 7 records** (1 duplicate `explore_universities_clicked` from a retry) — intentionally kept, clean up later.
 

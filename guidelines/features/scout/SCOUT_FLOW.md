@@ -31,7 +31,7 @@ edvoy_screens (
 
 **bbox:** `[x, y, width, height]` in raw pixels of the screenshot. Always `[0,0,0,0]` for manually captured screenshots (highlight is drawn into the image itself). Scout skips rendering the overlay when `bbox[2] === 0`.
 
-## Current Categories (227 records total: 147 GA4 + 80 Amplitude)
+## Current Categories (227 records total: 105 GA4 + 122 Amplitude)
 The table below is the original **GA4** set (105 records / 24 screens). **Amplitude** screens and later GA4 additions (Profile, Shortlist) were added afterwards (see notes) and are not all itemised here.
 
 | screenName (GA4) | Records |
@@ -65,11 +65,8 @@ The table below is the original **GA4** set (105 records / 24 screens). **Amplit
 
 > **Amplitude screens (80 records, `platform: amplitude`, `space: edvoy-student`):** ingested in later batches, incl. `Genie Banner` (3) and — added 2026-07-06 — **`Genie Banner Logged Out`** (3: `genie_banner_viewed_logged_out`, `genie_banner_clicked_logged_out`, `genie_banner_closed_logged_out`). CAT_COLOR entry for the new category was added in `public/app.jsx` (same purple as Genie Banner).
 
-> **Later GA4 additions (2026-07-06):** `Profile` (19 events) and `Shortlist` (2: `courses_under_shortlist_clicked`, `shortlist_tab_clicked`), `platform: ga4`, `space: edvoy-student`. Both categories already existed in `CAT_COLOR`/`GA4_CATEGORIES` (no code change needed). Event names kept verbatim from filenames incl. ` - 1`/` -2` suffixes.
-
-> **More GA4 additions (2026-07-07):** `Country Story` (4: viewed/clicked/explore_clicked/know_more_clicked), `Course Card` (1: `course_card_clicked`), `Institution Card` (1: `university_card_clicked`), `Trending Subjects` (1: `trending_subject_clicked`) — `platform: ga4`, `space: edvoy-student`. New `CAT_COLOR` entries added for all four in `public/app.jsx`.
-
-> **`Refer and Earn` (14 events, 2026-07-07):** `ga4`, `edvoy-student` — `my_account_tab_clicked`, `my_referral_tab_clicked`, `read_less_clicked`, `read_more_clicked`, `refer_and_earn_tab_clicked`, `referral_bank_detail_saved`, `referral_claim_your_reward_clicked`, `referral_link_shared`, `referral_reward_pending_viewed`, `referral_reward_received_viewed`, `referral_student_status_viewed`, `referral_update_bank_details_clicked`, `referral_view_bank_details_clicked`, `referral_whatsapp_share`. Category already existed in `CAT_COLOR`/`GA4_CATEGORIES`. Source folder had mixed extensions (`.png`/`.PNG`/`.jpg`) — ingestion accepts all image types and sets the matching MIME.
+> **App-screen additions — `platform: amplitude`, `space: edvoy-student` (2026-07-06/07):** `Profile` (19, verbatim names incl. ` - 1`/` -2` suffixes), `Shortlist` (2), `Country Story` (4), `Course Card` (1), `Institution Card` (1: `university_card_clicked`), `Trending Subjects` (1), `Refer and Earn` (14: my_account/my_referral/read_more/read_less/refer_and_earn_tab, referral_* bank/reward/link/status/whatsapp — mixed `.png`/`.PNG`/`.jpg` handled with matching MIME). New `CAT_COLOR` entries added where missing.
+> ⚠️ **Correction (2026-07-07):** these 42 records were first ingested as `ga4` by mistake (the category names live in the code's `GA4_CATEGORIES` list, but they are Edvoy **app** screens = Amplitude). Fixed with a direct data-only `UPDATE edvoy_screens SET platform='amplitude'` on the 7 screen_names. GA4 back to 105 (the original website set), Amplitude 122.
 
 > **Canvas image loading (2026-07-07):** screenshots load from R2 on demand (no upfront preload of the ~700KB PNGs). **Hover-prefetch** warms a row's image (`new Image().src`, deduped via a ref) so clicks are usually instant. While a not-yet-cached image downloads, the canvas shows a branded loading state (dim+blur the previous image, shimmer sweep, frosted-glass purple gradient ring + "Loading Screenshot" label); cached images skip it. `scoutCanvasLoading` state; keyframes `scoutShimmer`/`scoutPulse` in `index.html`.
 
