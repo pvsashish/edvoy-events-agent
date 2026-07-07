@@ -49,6 +49,15 @@ export const initDb = () => {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     ALTER TABLE edvoy_screens ADD COLUMN IF NOT EXISTS space VARCHAR(50) NOT NULL DEFAULT 'edvoy-student';
+    CREATE TABLE IF NOT EXISTS edvoy_usage (
+      id INT PRIMARY KEY DEFAULT 1,
+      input_tokens BIGINT NOT NULL DEFAULT 0,
+      output_tokens BIGINT NOT NULL DEFAULT 0,
+      cost_usd DOUBLE PRECISION NOT NULL DEFAULT 0,
+      generations INT NOT NULL DEFAULT 0,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    INSERT INTO edvoy_usage (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
   `;
 
   initPromise = (async () => {

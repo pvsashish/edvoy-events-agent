@@ -61,7 +61,7 @@ When the user generates GA4 first and then switches to Amplitude (or vice versa)
   "usage": { "input_tokens": 4521, "output_tokens": 380, "cost_usd": 0.0192, "calls": 3 }
 }
 ```
-`usage` is summed across all 3 Anthropic calls. Frontend (`app.jsx`) shows it two ways: a per-generate `$cost` chip in the results header, and a cumulative **API Usage** card in the sidebar (`totalUsage` state, persisted to `localStorage` key `edvoy_total_usage`, with a Reset).
+`usage` is summed across all 3 Anthropic calls. Frontend (`app.jsx`) shows it two ways: a per-generate `$cost` chip in the results header, and a cumulative **API Usage** card in the sidebar (`totalUsage` state, with a Reset). As of 2026-07-07 the cumulative total is **persisted server-side** in the `edvoy_usage` table via `api/usage.js` (loaded on mount, atomically incremented per generate) so it survives a browser cache clear and is consistent across devices; `localStorage` (`edvoy_total_usage`) is now just an offline cache.
 
 ## Error Handling
 - Non-POST → 405

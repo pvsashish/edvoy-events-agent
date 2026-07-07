@@ -58,6 +58,16 @@ Table: `edvoy_settings`
 | `key` | VARCHAR PK | Setting name (e.g. `ga4_sheet_id`) |
 | `value` | TEXT | Setting value |
 
+Table: `edvoy_usage` (cumulative API usage — single row `id=1`, added 2026-07-07)
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | INT PK | Always `1` (singleton) |
+| `input_tokens` / `output_tokens` | BIGINT | Running totals across all generates |
+| `cost_usd` | DOUBLE PRECISION | Running $ total |
+| `generations` | INT | Count of generates |
+
+Server-side source of truth for the sidebar **API Usage** card (was localStorage-only, which reset on a browser cache clear). `api/usage.js`: GET reads it; POST `{delta}` atomically increments (one generate); POST `{reset:true}` zeroes it; POST `{set}` overwrites (used to restore a known value). The client loads it on mount and keeps localStorage as an offline cache.
+
 Table: `edvoy_screens` (Scout)
 | Column | Type | Notes |
 |--------|------|-------|

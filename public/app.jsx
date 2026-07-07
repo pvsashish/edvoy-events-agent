@@ -964,6 +964,20 @@ function App() {
     catch { return { input_tokens: 0, output_tokens: 0, cost_usd: 0, generations: 0 }; }
   });
 
+  // Load the cumulative usage from the DB (server-side source of truth, survives a cache
+  // clear / works across devices). localStorage is now just an offline cache/fallback.
+  useEffect(() => {
+    fetch('/api/usage')
+      .then(r => r.json())
+      .then(d => {
+        if (d?.usage) {
+          setTotalUsage(d.usage);
+          try { localStorage.setItem('edvoy_total_usage', JSON.stringify(d.usage)); } catch {}
+        }
+      })
+      .catch(() => {}); // offline / no DB → keep the localStorage value
+  }, []);
+
   // Interactions
   const [copiedState, setCopiedState]      = useState(''); // '', 'tsv', 'csv', 'json'
   const [exportError, setExportError]      = useState('');
@@ -1335,6 +1349,16 @@ function App() {
           try { localStorage.setItem('edvoy_total_usage', JSON.stringify(next)); } catch {}
           return next;
         });
+        // Persist this generate's delta to the DB (atomic increment, server source of truth).
+        fetch('/api/usage', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ delta: {
+            input_tokens: data.usage.input_tokens || 0,
+            output_tokens: data.usage.output_tokens || 0,
+            cost_usd: data.usage.cost_usd || 0,
+            generations: 1,
+          } }),
+        }).catch(() => {});
       }
       setGeneratedAttachments([...attachments]);
       setGeneratedContext(featureContext);
@@ -1787,6 +1811,7 @@ function App() {
                         const fresh = { input_tokens: 0, output_tokens: 0, cost_usd: 0, generations: 0 };
                         setTotalUsage(fresh);
                         try { localStorage.setItem('edvoy_total_usage', JSON.stringify(fresh)); } catch {}
+                        fetch('/api/usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reset: true }) }).catch(() => {});
                       }}
                       title="Reset cumulative usage counter"
                       style={{ background: 'none', border: 'none', color: T.t400, fontSize: 9, fontWeight: 600, cursor: 'pointer', padding: 0, fontFamily: 'var(--font-display)' }}
