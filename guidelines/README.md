@@ -1,6 +1,6 @@
 # Edvoy Events Agent — Guidelines Index
 
-**Last updated:** 2026-06-08
+**Last updated:** 2026-07-08
 
 ## Project Docs
 | Doc | Purpose |
@@ -20,6 +20,7 @@
 | AI Vision Analysis (Anthropic Sonnet 4.6) | [features/analysis_pipeline/ANALYSIS_FLOW.md](features/analysis_pipeline/ANALYSIS_FLOW.md) |
 | Specs History (Neon DB) | [features/specs_history/SPECS_HISTORY_FLOW.md](features/specs_history/SPECS_HISTORY_FLOW.md) |
 | Upload + Video Frames | [features/upload/UPLOAD_FLOW.md](features/upload/UPLOAD_FLOW.md) |
+| Scout — Event Map (+ self-serve uploader) | [features/scout/SCOUT_FLOW.md](features/scout/SCOUT_FLOW.md) |
 | Naming Converter Tab | [features/naming_converter/NAMING_CONVERTER_FLOW.md](features/naming_converter/NAMING_CONVERTER_FLOW.md) |
 
 ## Reference
