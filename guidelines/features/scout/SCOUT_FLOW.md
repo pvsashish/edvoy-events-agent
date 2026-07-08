@@ -1,12 +1,24 @@
 # Scout — Event Map
 
-**Last updated:** 2026-06-23
+**Last updated:** 2026-07-08 (self-serve in-product uploader added)
 
 ## What It Does
 Visual analytics dictionary. Search an event name or screen category → see the real screenshot with the highlighted UI element. Useful for onboarding, QA, and confirming which element fires which event.
 
 ## How Data Gets In
-Data is ingested manually per session:
+Two ways, both write to the same `POST /api/screens` (R2 image + Neon record):
+
+### A) Self-serve uploader (in-product, 2026-07-08) — the primary way now
+Any user opens **Scout → "Upload screens"** (primary button, top-right of the Scout header) → a modal:
+1. **Drop a folder OR individual files** (drag-drop walks a dropped directory tree; or "Choose files" / "Choose folder"). Single-file upload supported.
+2. **Category** (free text + datalist of existing categories; auto-filled from a dropped folder's name) and **Platform** (GA4 / Amplitude segmented toggle with the real platform logos).
+3. **Review list** — every file shows its derived `event_name` (filename minus extension) before commit, with badges: `dup` (duplicate name within the batch), `exists` (already saved in this category → would create a duplicate record unless Replace is ticked), `no name` (filename derives an empty name → **excluded** from upload). Remove any row with ✕.
+4. **Replace** checkbox (only when the category already exists) deletes that category's existing records first (aborts the whole upload if a delete fails — never silently duplicates).
+5. Upload loops `POST /api/screens` with a progress bar → result screen (added N / failed list / all-failed state). Uploads go into the **active Space**.
+
+`ScoutUploadModal` in `public/app.jsx`. No code change needed for a new category — `CategoryBadge` falls back to a neutral grey for any `screenName` not in `CAT_COLOR`. Add-only: this UI has **no per-record delete** and **no approval gate** (writes straight to live for everyone in that Space); removing a bad upload means re-uploading the category with Replace, or a manual/API delete.
+
+### B) Manual Claude ingestion (still valid for bulk/scripted runs)
 1. Take screenshots of the relevant edvoy page with the triggering element visible
 2. Save to a Desktop folder named after the screen category (e.g. `Homepage/`, `Search/`)
 3. Name each file `<event_name>.png` — the filename IS the event_name

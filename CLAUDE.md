@@ -32,9 +32,12 @@ Key files:
 
 ---
 
-## Current State (as of 2026-07-07, last commit f1d102b)
+## Current State (as of 2026-07-08)
 
 No open blockers. DB lives in its own dedicated Neon project (`edvoy-events-agent`, not shared with any other tool). Scout images are on Cloudflare R2, not Neon — the old base64-in-Postgres transfer problem is permanently gone.
+
+### Recent (2026-07-08) — Scout self-serve uploader (shipped + live)
+PMs can now add Scout screens themselves — no more "ask Claude to ingest". **Scout → "Upload screens"** (primary button, top-right of the Scout header) opens `ScoutUploadModal` (`public/app.jsx`): drag-drop a **folder or single files**, pick Category (datalist + folder-name auto-fill) + Platform (GA4/AMP logo toggle), **review each derived `event_name` before commit** (badges: `dup` in-batch, `exists` already-in-category, `no name` empty → skipped), optional **Replace** (deletes the category's existing records first, aborts on any delete-failure so it never silently duplicates), progress bar + result screen. Loops the existing `POST /api/screens`; uploads to the active Space. New categories need **no code change** (`CategoryBadge` greys unknowns). Add-only — no per-record delete, no approval gate (writes straight to live for that Space). Doc: `guidelines/features/scout/SCOUT_FLOW.md` (section A).
 
 ### Recent (2026-07-07)
 - **Scout: 227 events / 43 screens** (105 GA4 + 122 Amplitude), all `edvoy-student`. Latest ingests: Genie Banner Logged Out, Profile, Shortlist, Country Story, Course Card, Institution Card, Trending Subjects, Refer and Earn.

@@ -763,6 +763,318 @@ function AttachmentPreviewModal({ items, index, onIndexChange, onClose }) {
   );
 }
 
+/* Scout self-serve upload — drag a folder, review the derived event names, commit.
+   Each screenshot → one screen record; filename (minus extension) = event_name. */
+function ScoutUploadModal({ space, spaceLabel, records, onClose, onUploaded }) {
+  const [files, setFiles]       = React.useState([]);
+  const [category, setCategory] = React.useState('');
+  const [platform, setPlatform] = React.useState('amplitude');
+  const [replace, setReplace]   = React.useState(false);
+  const [dragging, setDragging] = React.useState(false);
+  const [phase, setPhase]       = React.useState('pick');     // pick | uploading | done
+  const [progress, setProgress] = React.useState({ done: 0, total: 0 });
+  const [result, setResult]     = React.useState({ ok: 0, fail: [] });
+  const [error, setError]       = React.useState('');
+
+  const GA4Logo = () => (<svg width="15" height="15" viewBox="0 0 24 24" style={{ flexShrink: 0 }}><rect x="3.5" y="15" width="4" height="6" rx="1.6" fill="#F9AB00"/><rect x="10" y="10" width="4" height="11" rx="1.6" fill="#F9AB00"/><rect x="16.5" y="5" width="4" height="16" rx="1.6" fill="#F9AB00"/></svg>);
+  const AMPLogo = () => (<svg width="15" height="15" viewBox="0 0 24 24" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="11" fill="#1F6CE2"/><path d="M6 16 C 8 16 8.5 8 10 8 C 11.5 8 12 16 14 16 C 16 16 16.5 11 18 11" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>);
+
+  const isImg = f => f.type.startsWith('image/') || ['png','jpg','jpeg','gif','webp','bmp'].includes(f.name.split('.').pop().toLowerCase());
+  const deriveEvent = n => n.replace(/\.[^.]+$/, '');
+  const busy = phase === 'uploading';
+
+  React.useEffect(() => {
+    const h = e => { if (e.key === 'Escape' && !busy) onClose(); };
+    document.addEventListener('keydown', h);
+    return () => document.removeEventListener('keydown', h);
+  }, [busy, onClose]);
+
+  const addFiles = (list, folderName) => {
+    const imgs = list.filter(isImg);
+    if (!imgs.length) {
+      if (list.length) setError('No image files in that selection (PNG, JPG, GIF, WebP, BMP).');
+      return;
+    }
+    setError('');
+    setFiles(prev => {
+      const map = new Map(prev.map(f => [f.name, f]));
+      imgs.forEach(f => map.set(f.name, f));
+      return [...map.values()];
+    });
+    const folder = folderName || imgs[0].webkitRelativePath?.split('/')[0];
+    setCategory(c => c.trim() || folder || '');
+  };
+
+  // Folder drag-drop: walk the dropped directory tree (webkitGetAsEntry).
+  const fileFromEntry = en => new Promise(res => en.file(res));
+  const readDir = (dir, out) => new Promise(resolve => {
+    const reader = dir.createReader();
+    const read = () => reader.readEntries(async ents => {
+      if (!ents.length) return resolve();
+      for (const en of ents) {
+        if (en.isFile) out.push(await fileFromEntry(en));
+        else if (en.isDirectory) await readDir(en, out);
+      }
+      read();  // readEntries returns in chunks — keep going until empty
+    }, () => resolve());
+    read();
+  });
+  const onDrop = async e => {
+    e.preventDefault(); setDragging(false);
+    const items = e.dataTransfer.items;
+    const entries = items && items.length && items[0].webkitGetAsEntry
+      ? [...items].map(i => i.webkitGetAsEntry()).filter(Boolean) : null;
+    if (entries) {
+      const out = []; let folderName = '';
+      for (const en of entries) {
+        if (en.isFile) out.push(await fileFromEntry(en));
+        else if (en.isDirectory) { folderName = folderName || en.name; await readDir(en, out); }
+      }
+      addFiles(out, folderName);
+    } else {
+      addFiles([...e.dataTransfer.files]);
+    }
+  };
+
+  const cat = category.trim();
+  const existingCats = [...new Set(records.map(r => r.screenName))].sort();
+  const catRecords = cat ? records.filter(r => r.screenName === cat && (r.space || 'edvoy-student') === space) : [];
+  const dupCount = catRecords.length;
+  // event names already saved for this category (to flag would-be duplicate records)
+  const existingEvNames = new Set(catRecords.flatMap(r => (r.events || []).map(e => e.event_name)));
+  const evNames = files.map(f => deriveEvent(f.name));
+  const dupInBatch = new Set(evNames.filter((n, i) => evNames.indexOf(n) !== i));
+  const uploadable = files.filter(f => deriveEvent(f.name));       // drop files that derive an empty name
+  const badNameCount = files.length - uploadable.length;
+  const collideCount = replace ? 0 : uploadable.filter(f => existingEvNames.has(deriveEvent(f.name))).length;
+  const canUpload = !!cat && uploadable.length > 0 && !busy;
+
+  const doUpload = async () => {
+    if (!canUpload) return;
+    setError('');
+    setPhase('uploading'); setProgress({ done: 0, total: uploadable.length });
+    // Replace first — if any delete fails, abort rather than silently create duplicates.
+    if (replace) {
+      const existing = records.filter(r => r.screenName === cat && (r.space || 'edvoy-student') === space);
+      try {
+        for (const r of existing) {
+          const del = await fetch('/api/screens', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: r.id }) });
+          if (!del.ok) throw new Error();
+        }
+      } catch {
+        setError(`Couldn't remove the existing ${cat} records — nothing was uploaded. Try again.`);
+        setPhase('pick');
+        return;
+      }
+    }
+    let ok = 0; const fail = [];
+    for (let i = 0; i < uploadable.length; i++) {
+      const f = uploadable[i];
+      try {
+        const dataUrl = await toDataUrl(f);
+        const ev = deriveEvent(f.name);
+        const resp = await fetch('/api/screens', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ screenName: cat, platform, image: dataUrl, events: [{ bbox: [0, 0, 0, 0], label: ev, event_name: ev }], space }),
+        });
+        resp.ok ? ok++ : fail.push(f.name);
+      } catch { fail.push(f.name); }
+      setProgress({ done: i + 1, total: uploadable.length });
+    }
+    setResult({ ok, fail });
+    setPhase('done');
+  };
+
+  const seg = on => ({
+    flex: 1, padding: '9px 0', borderRadius: 8, cursor: busy ? 'default' : 'pointer',
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+    border: on ? '1.5px solid #7C3AED' : `1.5px solid ${T.border}`,
+    background: on ? '#F5F0FF' : '#fff', color: on ? '#7C3AED' : T.t700,
+    fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-body)', transition: 'all .12s',
+  });
+
+  return (
+    <div onClick={() => !busy && onClose()} style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(20,14,40,0.55)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div onClick={e => e.stopPropagation()} className="fade-in" style={{ width: 'min(580px, 96vw)', maxHeight: '90vh', display: 'flex', flexDirection: 'column', background: '#fff', borderRadius: 20, boxShadow: '0 40px 80px -20px rgba(30,15,60,.45)', overflow: 'hidden', fontFamily: 'var(--font-body)' }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '20px 22px 16px', borderBottom: `1px solid ${T.border}` }}>
+          <div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, letterSpacing: '-.02em', color: '#0F0F14' }}>Upload to Scout</div>
+            <div style={{ fontSize: 12.5, color: T.t500, marginTop: 3 }}>
+              Screenshots → events in <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#F5F0FF', color: '#7C3AED', fontWeight: 700, padding: '1px 8px', borderRadius: 99, fontSize: 11.5 }}>{spaceLabel}</span>
+            </div>
+          </div>
+          {!busy && (
+            <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${T.border}`, background: '#fff', color: T.t500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6 L18 18 M18 6 L6 18"/></svg>
+            </button>
+          )}
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: 22, overflowY: 'auto', fontFamily: 'var(--font-body)' }}>
+
+          {error && phase === 'pick' && (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '10px 14px', marginBottom: 16 }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2.2" strokeLinecap="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/></svg>
+              <span style={{ fontSize: 12.5, color: '#B91C1C', lineHeight: 1.45 }}>{error}</span>
+            </div>
+          )}
+
+          {phase === 'done' ? (() => {
+            const allFailed = result.ok === 0 && result.fail.length > 0;
+            const iconBg = allFailed ? '#FEE2E2' : result.fail.length ? '#FEF3C7' : '#DCFCE7';
+            const iconFg = allFailed ? '#DC2626' : result.fail.length ? '#B45309' : '#15803D';
+            return (
+            <div style={{ textAlign: 'center', padding: '12px 0' }}>
+              <div style={{ width: 56, height: 56, borderRadius: '50%', margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: iconBg }}>
+                {allFailed
+                  ? <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={iconFg} strokeWidth="2.6" strokeLinecap="round"><path d="M6 6 L18 18 M18 6 L6 18"/></svg>
+                  : <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke={iconFg} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 L9 17 L4 12"/></svg>}
+              </div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 800, color: '#0F0F14' }}>
+                {allFailed ? 'Upload failed — nothing added' : `Added ${result.ok} screen${result.ok === 1 ? '' : 's'} to ${cat}`}
+              </div>
+              {result.fail.length > 0 && (
+                <div style={{ marginTop: 12, textAlign: 'left', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '10px 14px' }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: '#B45309', marginBottom: 6 }}>{result.fail.length} failed</div>
+                  {result.fail.slice(0, 6).map(n => <div key={n} style={{ fontSize: 11.5, color: '#92400E', fontFamily: 'var(--font-mono)' }}>{n}</div>)}
+                  {result.fail.length > 6 && <div style={{ fontSize: 11.5, color: '#92400E' }}>+{result.fail.length - 6} more</div>}
+                </div>
+              )}
+            </div>
+            );
+          })() : files.length === 0 ? (
+            <div
+              onDragOver={e => { e.preventDefault(); setDragging(true); }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={onDrop}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '40px 24px', borderRadius: 14, textAlign: 'center', border: `2px dashed ${dragging ? '#7C3AED' : T.border}`, background: dragging ? '#F5F0FF' : '#FAFAFC', transition: 'all .15s' }}>
+              <div style={{ width: 46, height: 46, borderRadius: 12, background: '#F1EBFC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#0F0F14' }}>Drop screenshots or a folder here</div>
+              <div style={{ fontSize: 12.5, color: T.t500, marginBottom: 4 }}>Each file name becomes the event name</div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, cursor: 'pointer', border: 'none', background: T.grad || '#7C3AED', color: '#fff', fontSize: 12.5, fontWeight: 700 }}>
+                  Choose files
+                  <input type="file" accept="image/*" multiple hidden onChange={e => addFiles([...e.target.files])} />
+                </label>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${T.border}`, background: '#fff', color: T.t700, fontSize: 12.5, fontWeight: 700 }}>
+                  Choose folder
+                  <input type="file" webkitdirectory="" directory="" multiple hidden onChange={e => addFiles([...e.target.files])} />
+                </label>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Category + platform */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 14, marginBottom: 16 }}>
+                <div>
+                  <div style={{ fontSize: 11.5, fontWeight: 700, color: T.t700, marginBottom: 6 }}>Category</div>
+                  <input type="text" list="scout-cat-list" value={category} disabled={busy}
+                    onChange={e => setCategory(e.target.value)} placeholder="e.g. Profile"
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: 8, border: `1px solid ${T.border}`, fontSize: 13, outline: 'none', fontFamily: 'var(--font-body)' }} />
+                  <datalist id="scout-cat-list">{existingCats.map(c => <option key={c} value={c} />)}</datalist>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11.5, fontWeight: 700, color: T.t700, marginBottom: 6 }}>Platform</div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => !busy && setPlatform('ga4')} style={seg(platform === 'ga4')}><GA4Logo />GA4</button>
+                    <button onClick={() => !busy && setPlatform('amplitude')} style={seg(platform === 'amplitude')}><AMPLogo />Amplitude</button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Review list */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: T.t700 }}>{files.length} event{files.length === 1 ? '' : 's'} to add</div>
+                {!busy && (
+                  <label style={{ fontSize: 11.5, fontWeight: 700, color: '#7C3AED', cursor: 'pointer' }}>
+                    + Add files
+                    <input type="file" accept="image/*" multiple hidden onChange={e => addFiles([...e.target.files])} />
+                  </label>
+                )}
+              </div>
+              <div style={{ border: `1px solid ${T.border}`, borderRadius: 10, maxHeight: 220, overflowY: 'auto' }}>
+                {files.map((f, i) => {
+                  const ev = deriveEvent(f.name);
+                  const dup = ev && dupInBatch.has(ev);
+                  const exists = ev && !replace && existingEvNames.has(ev);
+                  const badName = !ev;
+                  const badge = (txt, title, fg, bg) => <span title={title} style={{ fontSize: 10.5, fontWeight: 700, color: fg, background: bg, padding: '2px 7px', borderRadius: 99, flexShrink: 0 }}>{txt}</span>;
+                  return (
+                    <div key={f.name} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderTop: i ? `1px solid ${T.border}` : 'none', opacity: badName ? 0.6 : 1 }}>
+                      <span style={{ fontSize: 11, color: T.t500, fontFamily: 'var(--font-mono)', width: 22, flexShrink: 0 }}>{i + 1}</span>
+                      <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 600, color: badName ? T.t500 : '#0F0F14', fontStyle: badName ? 'italic' : 'normal', fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev || f.name}</span>
+                      {badName && badge('no name', 'Filename has no usable event name — will be skipped', '#B91C1C', '#FEE2E2')}
+                      {exists && badge('exists', `Already in ${cat} — uploading adds a duplicate unless you replace`, '#B45309', '#FEF3C7')}
+                      {dup && badge('dup', 'Duplicate name within this batch', '#B45309', '#FEF3C7')}
+                      {!busy && (
+                        <button onClick={() => setFiles(prev => prev.filter(x => x.name !== f.name))} title="Remove"
+                          style={{ width: 22, height: 22, borderRadius: 6, border: 'none', background: 'transparent', color: T.t500, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6 L18 18 M18 6 L6 18"/></svg>
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {dupInBatch.size > 0 && (
+                <div style={{ fontSize: 11.5, color: '#B45309', marginTop: 8 }}>⚠ {dupInBatch.size} duplicate event name{dupInBatch.size === 1 ? '' : 's'} in this batch — each still uploads as its own screen.</div>
+              )}
+              {collideCount > 0 && (
+                <div style={{ fontSize: 11.5, color: '#B45309', marginTop: 8 }}>⚠ {collideCount} event{collideCount === 1 ? '' : 's'} already {collideCount === 1 ? 'exists' : 'exist'} in <strong>{cat}</strong> — uploading adds duplicates. Tick “Replace” to overwrite instead.</div>
+              )}
+              {badNameCount > 0 && (
+                <div style={{ fontSize: 11.5, color: '#B91C1C', marginTop: 8 }}>⚠ {badNameCount} file{badNameCount === 1 ? ' has' : 's have'} no usable event name — {badNameCount === 1 ? "it'll" : "they'll"} be skipped.</div>
+              )}
+
+              {dupCount > 0 && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: T.t700, marginTop: 14, cursor: busy ? 'default' : 'pointer' }}>
+                  <input type="checkbox" checked={replace} disabled={busy} onChange={e => setReplace(e.target.checked)} />
+                  Replace the {dupCount} existing <strong>&nbsp;{cat}&nbsp;</strong> record{dupCount === 1 ? '' : 's'} first
+                </label>
+              )}
+
+              {busy && (
+                <div style={{ marginTop: 16 }}>
+                  <div style={{ height: 6, borderRadius: 99, background: '#EDE7F7', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%`, background: T.grad || '#7C3AED', transition: 'width .2s' }} />
+                  </div>
+                  <div style={{ fontSize: 12, color: T.t500, marginTop: 7, textAlign: 'center' }}>Uploading {progress.done} / {progress.total}…</div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, padding: '14px 22px', borderTop: `1px solid ${T.border}`, background: '#FCFBFE' }}>
+          {phase === 'done' ? (
+            <>
+              <button onClick={() => { setFiles([]); setReplace(false); setPhase('pick'); }}
+                style={{ padding: '10px 16px', borderRadius: 8, border: `1px solid ${T.border}`, background: '#fff', color: T.t700, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Upload more</button>
+              <button onClick={() => { onUploaded(result.ok, result.fail.length); onClose(); }}
+                style={{ padding: '10px 22px', borderRadius: 8, border: 'none', background: T.grad || '#7C3AED', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Done</button>
+            </>
+          ) : (
+            <>
+              {!busy && <button onClick={onClose} style={{ padding: '10px 16px', borderRadius: 8, border: `1px solid ${T.border}`, background: '#fff', color: T.t500, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>}
+              <button onClick={doUpload} disabled={!canUpload}
+                style={{ padding: '10px 22px', borderRadius: 8, border: 'none', background: canUpload ? (T.grad || '#7C3AED') : '#E5E7EB', color: canUpload ? '#fff' : T.t500, fontSize: 13, fontWeight: 700, cursor: canUpload ? 'pointer' : 'not-allowed' }}>
+                {busy ? 'Uploading…' : `Upload ${uploadable.length || ''}`.trim()}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SkeletonRows() {
   const widths = [
     [80, 190, 110, 100],
@@ -831,6 +1143,8 @@ function App() {
   const [scoutPage, setScoutPage]                     = useState(1);
   const [scoutToast, setScoutToast]                   = useState(null);
   const [scoutHoveredId, setScoutHoveredId]           = useState(null);
+  // Scout self-serve upload (folder of PNGs → screens, filename = event_name) — modal
+  const [scoutUploadOpen, setScoutUploadOpen]         = useState(false);
 
   const runScoutSearch = (q) => {
     const raw = q.trim();
@@ -882,6 +1196,13 @@ function App() {
 
   // Deselect the current event/screen — used by clicking an already-selected row (toggle
   // off) and by the explicit "clear selection" (X) button. Clears the canvas too.
+  const reloadScoutList = async () => {
+    const data = await fetch('/api/screens').then(r => r.json());
+    const results = data.screens || [];
+    setScoutAllResults(results);
+    setScoutResults(results);
+  };
+
   const clearScoutSelection = () => {
     setScoutSelected(null);
     setScoutActiveEvent(null);
@@ -2046,6 +2367,21 @@ function App() {
             </h2>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {activeTab === 'scout' && (
+              <button
+                onClick={() => setScoutUploadOpen(true)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 7,
+                  padding: '8px 16px', borderRadius: 8, border: 'none',
+                  background: T.grad || T.purple, color: '#fff',
+                  fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(124,58,237,.24)',
+                }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                Upload screens
+              </button>
+            )}
             {activeTab === 'generator' && (events.length > 0 || attachments.length > 0 || featureContext) && (
               <button
                 onClick={resetWorkspace}
@@ -3388,6 +3724,20 @@ function App() {
           index={preview.index}
           onIndexChange={(i) => setPreview(p => ({ ...p, index: i }))}
           onClose={() => setPreview(null)}
+        />
+      )}
+
+      {scoutUploadOpen && (
+        <ScoutUploadModal
+          space={space}
+          spaceLabel={SPACES.find(s => s.key === space)?.label || space}
+          records={scoutAllResults}
+          onClose={() => setScoutUploadOpen(false)}
+          onUploaded={async (ok, fail) => {
+            await reloadScoutList();
+            setScoutToast(`Added ${ok} screen${ok === 1 ? '' : 's'}${fail ? ` · ${fail} failed` : ''}`);
+            setTimeout(() => setScoutToast(null), 3000);
+          }}
         />
       )}
     </div>
