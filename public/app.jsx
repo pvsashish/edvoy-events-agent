@@ -3477,7 +3477,7 @@ function App() {
                       <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#9CA3AF' }}>Screen</span>
                       <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-.015em', color: '#0F0F14', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 }}>{scoutSelected?.screenName || '—'}</span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: '#0F0F14', padding: '3px 8px', border: '1px solid #ECECF0', background: '#fff', borderRadius: 6, whiteSpace: 'nowrap' }}>
-                        <GA4Logo size={11} />GA4
+                        {scoutSelected?.platform === 'amplitude' ? <><AMPLogo size={11} />Amplitude</> : <><GA4Logo size={11} />GA4</>}
                       </span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: '#6B7280', padding: '3px 8px', border: '1px solid #ECECF0', background: '#fff', borderRadius: 6, whiteSpace: 'nowrap' }}>
                         {formFactor === 'mobile' ? <PhoneIcon /> : <MonitorIcon />}
