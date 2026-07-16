@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="description" content="Sign in to the Edvoy Events Agent — event tracking spec generator and Scout event map." />
+  <title>Sign in · Edvoy Events Agent</title>
+  <link rel="icon" href="/logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --grad: linear-gradient(135deg, #321386 0%, #6D28D9 55%, #9C20D7 100%);
+      --ink: #0F172A;
+      --muted: #64748B;
+      --line: #E2E8F0;
+      --field: #F8FAFC;
+      --violet: #7C3AED;
+      --brand-shadow: rgba(156, 32, 215, .28);
+      --danger: #BE123C;
+      font-family: 'Manrope', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      min-height: 100dvh;
+      background: #F1F5F9;
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .wrap {
+      min-height: 100dvh;
+      display: grid;
+      grid-template-columns: 1.05fr 1fr;
+    }
+
+    /* ── Brand panel ─────────────────────────────────────────────── */
+    .brand {
+      position: relative;
+      overflow: hidden;
+      background: var(--grad);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: clamp(32px, 4vw, 60px);
+      isolation: isolate;
+    }
+    .brand::before {
+      content: "";
+      position: absolute; inset: 0; z-index: -1;
+      background:
+        radial-gradient(60% 50% at 78% 12%, rgba(255,255,255,.28), transparent 60%),
+        radial-gradient(46% 40% at 8% 92%, rgba(255,255,255,.14), transparent 55%);
+    }
+    .brand::after {
+      content: "";
+      position: absolute; inset: 0; z-index: -1; opacity: .06;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+    .mark {
+      display: inline-flex; align-items: center; gap: 12px;
+    }
+    .mark .tile {
+      width: 46px; height: 46px; border-radius: 13px;
+      background: #fff; display: grid; place-items: center;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, .18);
+      flex-shrink: 0;
+    }
+    .mark .tile img { width: 38px; height: 38px; display: block; }
+    .mark .name { font-weight: 800; font-size: 16px; letter-spacing: -.01em; }
+    .mark .sub { font-size: 12px; color: rgba(255,255,255,.72); margin-top: 1px; }
+
+    .pitch { max-width: 30ch; }
+    .pitch .eyebrow {
+      font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase;
+      color: rgba(255,255,255,.7); margin: 0 0 14px;
+    }
+    .pitch h1 {
+      font-size: clamp(30px, 3.6vw, 46px); line-height: 1.02; letter-spacing: -.03em;
+      font-weight: 800; margin: 0;
+    }
+    .pitch p {
+      margin: 18px 0 0; font-size: 15px; line-height: 1.6; color: rgba(255,255,255,.82);
+      max-width: 34ch;
+    }
+    .legal { font-size: 12px; color: rgba(255,255,255,.6); }
+
+    /* ── Form panel ──────────────────────────────────────────────── */
+    .panel {
+      display: flex; align-items: center; justify-content: center;
+      padding: clamp(28px, 4vw, 56px);
+    }
+    .card { width: 100%; max-width: 380px; }
+    .card .kicker {
+      font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase;
+      color: var(--violet); margin: 0 0 10px;
+    }
+    .card h2 { font-size: 26px; font-weight: 800; letter-spacing: -.02em; margin: 0 0 6px; }
+    .card .lead { font-size: 14px; color: var(--muted); margin: 0 0 28px; }
+
+    form { display: grid; gap: 8px; }
+    label { font-size: 12px; font-weight: 700; color: #475569; }
+    .field {
+      position: relative; display: flex; align-items: center;
+    }
+    input[type="password"], input[type="text"] {
+      width: 100%; padding: 12px 44px 12px 14px;
+      border: 1px solid var(--line); border-radius: 12px;
+      background: var(--field); color: var(--ink);
+      font: inherit; font-size: 15px; outline: none;
+      transition: border-color .15s, box-shadow .15s, background .15s;
+    }
+    input::placeholder { color: #94A3B8; }
+    input:focus {
+      border-color: #C4B5FD; background: #fff;
+      box-shadow: 0 0 0 4px rgba(124, 58, 237, .12);
+    }
+    .toggle {
+      position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+      width: 34px; height: 34px; border: 0; background: transparent; cursor: pointer;
+      display: grid; place-items: center; color: #94A3B8; border-radius: 9px;
+    }
+    .toggle:hover { color: #475569; background: #F1F5F9; }
+    .toggle svg { width: 18px; height: 18px; }
+
+    button.submit {
+      margin-top: 12px; width: 100%; padding: 13px; border: 0; border-radius: 12px;
+      background: var(--grad); background-size: 140% 140%; background-position: 0% 50%;
+      color: #fff; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+      box-shadow: 0 10px 24px -6px var(--brand-shadow);
+      display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+      transition: transform .12s cubic-bezier(.16,1,.3,1), box-shadow .15s, background-position .4s, opacity .15s;
+    }
+    button.submit:hover { background-position: 100% 50%; box-shadow: 0 14px 30px -8px var(--brand-shadow); }
+    button.submit:active { transform: translateY(1px) scale(.995); }
+    button.submit:disabled { opacity: .6; cursor: progress; }
+
+    .spinner {
+      width: 15px; height: 15px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
+      animation: spin .6s linear infinite; display: none;
+    }
+    button.submit[aria-busy="true"] .spinner { display: block; }
+    button.submit[aria-busy="true"] .label { opacity: .85; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error {
+      min-height: 18px; margin-top: 12px; font-size: 12.5px; font-weight: 600; color: var(--danger);
+      display: flex; align-items: center; gap: 6px;
+      opacity: 0; transform: translateY(-2px); transition: opacity .18s, transform .18s;
+    }
+    .error.show { opacity: 1; transform: none; }
+    .error svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+    .foot {
+      margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line);
+      font-size: 11.5px; color: #94A3B8; display: flex; align-items: center; gap: 7px;
+    }
+    .foot .dot { width: 6px; height: 6px; border-radius: 50%; background: #34D399; box-shadow: 0 0 0 3px rgba(52,211,153,.16); }
+
+    /* ── Responsive ──────────────────────────────────────────────── */
+    @media (max-width: 820px) {
+      .wrap { grid-template-columns: 1fr; }
+      .brand {
+        padding: 22px 24px; flex-direction: row; align-items: center;
+        justify-content: space-between; gap: 16px;
+      }
+      .brand .pitch, .brand .legal { display: none; }
+      .panel { padding: 32px 22px 48px; align-items: flex-start; }
+      .card { margin: 8px auto 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <aside class="brand">
+      <div class="mark">
+        <span class="tile"><img src="/logo.png" alt="Edvoy" /></span>
+        <span>
+          <div class="name">Edvoy Events</div>
+          <div class="sub">Tracking Governance</div>
+        </span>
+      </div>
+
+      <div class="pitch">
+        <p class="eyebrow">Analytics · Event Tracking</p>
+        <h1>Every event, correctly named, in one place.</h1>
+        <p>Turn screenshots into GA4 + Amplitude tracking specs, keep the naming consistent, and browse Scout's visual map of every tracked event.</p>
+      </div>
+
+      <div class="legal">Internal tool · authorised staff only</div>
+    </aside>
+
+    <main class="panel">
+      <form class="card" id="form" autocomplete="off" novalidate>
+        <div>
+          <p class="kicker">Edvoy Events</p>
+          <h2>Sign in</h2>
+          <p class="lead">Enter the team password to open the workspace.</p>
+        </div>
+
+        <label for="password">Password</label>
+        <div class="field">
+          <input id="password" name="password" type="password"
+                 autocomplete="current-password" placeholder="••••••••" required autofocus />
+          <button type="button" class="toggle" id="toggle" aria-label="Show password">
+            <svg id="eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+
+        <button class="submit" id="submit" type="submit" aria-busy="false">
+          <span class="spinner" aria-hidden="true"></span>
+          <span class="label">Sign in</span>
+        </button>
+
+        <div class="error" id="error" role="alert" aria-live="polite">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+          <span id="errorText"></span>
+        </div>
+
+        <div class="foot"><span class="dot"></span> Shared internal access · authorised staff only</div>
+      </form>
+    </main>
+  </div>
+
+  <script>
+    var form = document.getElementById('form');
+    var pwd = document.getElementById('password');
+    var submit = document.getElementById('submit');
+    var errorBox = document.getElementById('error');
+    var errorText = document.getElementById('errorText');
+    var toggle = document.getElementById('toggle');
+    var eye = document.getElementById('eye');
+
+    var EYE_OPEN = '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>';
+    var EYE_OFF = '<path d="M3 3l18 18"/><path d="M10.6 10.6a3 3 0 0 0 4.2 4.2"/><path d="M9.4 5.2A9.4 9.4 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3 3.8"/><path d="M6.2 6.2A16.8 16.8 0 0 0 2 12s3.5 7 10 7a9.3 9.3 0 0 0 3.3-.6"/>';
+
+    toggle.addEventListener('click', function () {
+      var showing = pwd.type === 'text';
+      pwd.type = showing ? 'password' : 'text';
+      eye.innerHTML = showing ? EYE_OPEN : EYE_OFF;
+      toggle.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+      pwd.focus();
+    });
+
+    function clearError() { errorBox.classList.remove('show'); }
+    function showError(msg) { errorText.textContent = msg; errorBox.classList.add('show'); }
+    pwd.addEventListener('input', clearError);
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      clearError();
+      submit.setAttribute('aria-busy', 'true');
+      submit.disabled = true;
+      fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'login', password: pwd.value })
+      })
+        .then(function (res) { return res.json().then(function (b) { return { ok: res.ok, body: b }; }); })
+        .then(function (r) {
+          if (r.ok) { window.location.replace('/'); return; }
+          showError((r.body && r.body.error) || 'Sign in failed');
+          submit.setAttribute('aria-busy', 'false');
+          submit.disabled = false;
+          pwd.select();
+        })
+        .catch(function () {
+          showError('Network error. Please try again.');
+          submit.setAttribute('aria-busy', 'false');
+          submit.disabled = false;
+        });
+    });
+  </script>
+</body>
+</html>

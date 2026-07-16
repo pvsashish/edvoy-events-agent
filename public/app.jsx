@@ -1122,6 +1122,13 @@ function generateThumbnail(dataUrl, maxWidth = 640) {
    Main App
 ───────────────────────────────────────── */
 function App() {
+  // Sign out: clear the session cookie, then bounce to /login.
+  const handleLogout = () => {
+    fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'logout' }) })
+      .then(() => { window.location.href = '/login'; })
+      .catch(() => { window.location.href = '/login'; });
+  };
+
   // Navigation
   const [activeTab, setActiveTab]          = useState('generator'); // 'generator' | 'history' | 'guidelines' | 'scout'
 
@@ -2309,6 +2316,18 @@ function App() {
               Product Workspace
             </span>
           </div>
+
+          <button onClick={handleLogout} title="Sign out" aria-label="Sign out" style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+            border: '1px solid #E4E4EA', background: '#fff', color: '#6B7280',
+            cursor: 'pointer', transition: 'color .12s, border-color .12s, background .12s',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#E11D48'; e.currentTarget.style.borderColor = '#FECDD3'; e.currentTarget.style.background = '#FFF1F2'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = '#6B7280'; e.currentTarget.style.borderColor = '#E4E4EA'; e.currentTarget.style.background = '#fff'; }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
         </div>
       </aside>
 
