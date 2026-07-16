@@ -838,7 +838,7 @@ function ScoutUploadModal({ space, spaceLabel, records, onClose, onUploaded }) {
 
   const cat = category.trim();
   const existingCats = [...new Set(records.map(r => r.screenName))].sort();
-  const catRecords = cat ? records.filter(r => r.screenName === cat && (r.space || 'edvoy-student') === space) : [];
+  const catRecords = cat ? records.filter(r => r.screenName === cat && (r.space || 'edvoy-student') === space && r.platform === platform) : [];
   const dupCount = catRecords.length;
   // event names already saved for this category (to flag would-be duplicate records)
   const existingEvNames = new Set(catRecords.flatMap(r => (r.events || []).map(e => e.event_name)));
@@ -855,7 +855,7 @@ function ScoutUploadModal({ space, spaceLabel, records, onClose, onUploaded }) {
     setPhase('uploading'); setProgress({ done: 0, total: uploadable.length });
     // Replace first — if any delete fails, abort rather than silently create duplicates.
     if (replace) {
-      const existing = records.filter(r => r.screenName === cat && (r.space || 'edvoy-student') === space);
+      const existing = records.filter(r => r.screenName === cat && (r.space || 'edvoy-student') === space && r.platform === platform);
       try {
         for (const r of existing) {
           const del = await fetch('/api/screens', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: r.id }) });
@@ -3666,7 +3666,9 @@ function App() {
                     {/* Stats */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 12, color: '#6B7280' }}>
                       <span style={{ fontFamily: 'var(--font-mono)', display: 'inline-flex', alignItems: 'center', gap: 6, fontVariantNumeric: 'tabular-nums' }}>
-                        <GA4Logo size={14} /><span style={{ color: '#0F0F14', fontWeight: 700 }}>{filteredResults.length}</span> events
+                        {scoutPlatformFilter !== 'amplitude' && <GA4Logo size={14} />}
+                        {scoutPlatformFilter !== 'ga4' && <AMPLogo size={14} />}
+                        <span style={{ color: '#0F0F14', fontWeight: 700 }}>{filteredResults.length}</span> events
                       </span>
                       <span style={{ width: 1, height: 14, background: '#ECECF0' }}/>
                       <span style={{ fontFamily: 'var(--font-mono)', display: 'inline-flex', alignItems: 'center', gap: 6, fontVariantNumeric: 'tabular-nums' }}>
