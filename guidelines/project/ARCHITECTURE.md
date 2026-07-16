@@ -1,6 +1,6 @@
 # Architecture — Edvoy Events Agent
 
-**Last updated:** 2026-07-16 (Scout `ScoutUploadModal` dup/exists/Replace checks + footer stat scoped by platform) · earlier: 2026-07-08 (Scout self-serve in-product uploader — `ScoutUploadModal`) · 2026-07-03 (Mobile/tablet responsive fixes incl. a global `<aside>` CSS bug; Space switcher incl. Scout scoping + sheet-edit-box fix; History thumbnails on Cloudflare R2 + auto-migration; Scout images on Cloudflare R2; dedicated Neon project; Postgres pool crash fix)
+**Last updated:** 2026-07-16 (shared-password login gate — `middleware.js`, `api/auth.js`, `public/login.html`) · earlier same day: Scout `ScoutUploadModal` dup/exists/Replace checks + footer stat scoped by platform · 2026-07-08 (Scout self-serve in-product uploader — `ScoutUploadModal`) · 2026-07-03 (Mobile/tablet responsive fixes incl. a global `<aside>` CSS bug; Space switcher incl. Scout scoping + sheet-edit-box fix; History thumbnails on Cloudflare R2 + auto-migration; Scout images on Cloudflare R2; dedicated Neon project; Postgres pool crash fix)
 
 ## What It Does
 PM tool for Edvoy's analytics team. Upload screenshots or videos of the Edvoy web portal or mobile app, select GA4 or Amplitude, and receive correctly formatted analytics events + parameters matching the tracking sheet format (Category, Suggested Event Name, Parameter, Sample Value). Specs are persisted to Neon PostgreSQL with localStorage fallback. Also includes Scout — a visual event map that shows real screenshots with highlighted UI elements for each tracked event.
@@ -22,14 +22,19 @@ Edvoy product managers and analytics team.
 events-agent/
 ├── api/
 │   ├── analyze.js       ← POST /api/analyze — Anthropic Sonnet 4.6 3-step pipeline (temperature 0), normalises events JSON, injects matched-event params, returns usage (tokens + $ cost)
+│   ├── auth.js          ← POST /api/auth — {action:'login',password} → signed session cookie; {action:'logout'} clears it. Rate-limited. Added 2026-07-16
+│   ├── lib/
+│   │   └── session.js   ← JWT sign/verify, cookie helpers, constant-time password check (Node runtime). Added 2026-07-16
 │   ├── db.js            ← Neon PostgreSQL pool + self-initialising table setup
 │   ├── history.js       ← GET/POST/DELETE /api/history — specs history CRUD
 │   ├── screens.js       ← GET/POST/DELETE /api/screens — Scout event map CRUD
 │   ├── settings.js      ← GET/POST /api/settings — shared app config (Google Sheets IDs, etc.)
 │   └── sheets.js        ← POST /api/sheets — fetch + parse Google Sheets CSV for tracking sheet sync
+├── middleware.js         ← Vercel Edge auth gate — redirects unauthed pages to /login, 401s unauthed /api/*. Verifies the session JWT with Web Crypto (edge can't use `jsonwebtoken`). Added 2026-07-16
 ├── public/
 │   ├── index.html       ← Entry point; loads React UMD + Babel CDN; global CSS + animations
-│   ├── app.jsx          ← Full React app (sidebar nav, Generate tab, History tab, Naming tab, Scout tab)
+│   ├── app.jsx          ← Full React app (sidebar nav, Generate tab, History tab, Naming tab, Scout tab, Sign out button)
+│   ├── login.html       ← Branded sign-in page (shared password). Added 2026-07-16
 │   └── logo.png         ← Local brand logo (avoids CORS / hotlink blocks from edvoy.com)
 ├── prompts/
 │   ├── ga4.js           ← buildGA4Prompt() — Step 3 system prompt with naming rules + resolvedNames injection
@@ -39,8 +44,8 @@ events-agent/
 ├── guidelines/          ← Project continuity docs (committed, pushed to GitHub)
 ├── .claude/
 │   └── launch.json      ← Preview server config (port 3333, vercel dev)
-├── vercel.json          ← outputDirectory: public, /api/* rewrites, 30s fn timeout
-├── .env                 ← Local only (gitignored) — ANTHROPIC_API_KEY, DATABASE_URL
+├── vercel.json          ← outputDirectory: public, /api/* + /login rewrites, 30s fn timeout
+├── .env                 ← Local only (gitignored) — ANTHROPIC_API_KEY, DATABASE_URL, R2_*, DASHBOARD_PASSWORD, SESSION_SECRET
 ├── .gitignore
 └── package.json
 ```
@@ -50,6 +55,9 @@ events-agent/
 |----------|-------|---------|
 | `ANTHROPIC_API_KEY` | `.env` + Vercel env (prod + preview) | Anthropic API auth — the sole AI provider (all 3 pipeline steps) |
 | `DATABASE_URL` | `.env` + Vercel env | Neon PostgreSQL connection string |
+| `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET` / `R2_PUBLIC_URL` | `.env` + Vercel env (prod) | Cloudflare R2 credentials — Scout + History thumbnail image storage (`api/r2.js`) |
+| `DASHBOARD_PASSWORD` | `.env` + Vercel env (Production) | Shared team password checked by `api/auth.js`. Added 2026-07-16 |
+| `SESSION_SECRET` | `.env` + Vercel env (Production) | HS256 signing key for the session JWT — long random string, shared between `api/lib/session.js` (Node) and `middleware.js` (Edge/Web Crypto). Added 2026-07-16 |
 
 ## Database Schema
 Table: `edvoy_settings`
@@ -107,6 +115,7 @@ Table: `edvoy_specs_history`
 - **Sample value normalisation**: `is_*`/`has_*` → `true/false`; dimension params (`*_id`, `*_name`, `*_category`, `from`, `options_name`, …) → `dynamic value`; parameter casing preserved; rows de-duped one-per event+param (all in `api/analyze.js`).
 - **DB-less fallback**: `api/history.js` returns empty array (not an error) when `DATABASE_URL` is unset; frontend falls back to localStorage.
 - **Neon SSL retry**: `api/screens.js` wraps all `pool.query` calls in `queryWithRetry` (2 retries, 3s delay) to handle intermittent Neon SSL `bad record mac` errors. Pool is capped at `max: 1` connection.
+- **Shared-password auth (2026-07-16)**: whole app gated behind one shared team password (no per-user accounts) — same pattern as the Edvoy Reviews Dashboard. `middleware.js` (Edge) checks a signed JWT session cookie on every request except `/login`, `/login.html`, `/api/auth`; unauthed pages redirect to `/login`, unauthed `/api/*` gets `401`. `api/auth.js` exchanges `DASHBOARD_PASSWORD` (constant-time compare) for the cookie via `api/lib/session.js` (`jsonwebtoken`, HS256, 12h TTL). The edge runtime can't load `jsonwebtoken` (needs Node's `crypto`), so `middleware.js` re-verifies the same HS256 token with the Web Crypto API instead — both verifiers share `SESSION_SECRET` and must stay in sync if the signing scheme ever changes.
 - **Scout ingestion**: source of truth is screenshot files (one PNG per event, named `<event_name>.png`). `<event_name> - 2.png` = same event firing in a second place; full filename kept as `event_name`. bbox is always `[0,0,0,0]` for manually captured shots. Two entry points, same `POST /api/screens`: (a) **self-serve in-product uploader** — `ScoutUploadModal` in `app.jsx`, opened from the Scout header, drag-drop a folder/files → category + platform → pre-commit review (`dup`/`exists`/`no name` badges) → upload; add-only, no per-record delete or approval gate, writes live to the active Space; new categories need no code (grey `CategoryBadge` fallback). **`exists`/`dup` detection and Replace-delete are scoped by `platform` (fixed 2026-07-16 — previously only filtered by category + space, so a same-named GA4/Amplitude event falsely collided and Replace could delete the other platform's records too).** (b) Claude-run folder ingestion for bulk. See SCOUT_FLOW.md §A.
 
 ## Brand Guidelines (Edvoy)

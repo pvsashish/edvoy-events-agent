@@ -20,12 +20,16 @@ PM tool for Edvoy's analytics team. Lets PMs upload screenshots/videos, select G
 | Database | Neon PostgreSQL (`DATABASE_URL` env var) |
 | AI | Anthropic Claude Sonnet 4.6 (`ANTHROPIC_API_KEY`), temperature 0, all steps — 3-step pipeline: identify → match → generate. Groq + Gemini removed 2026-06-30 |
 | Hosting | Vercel — `public/` is static root, `api/` is serverless |
+| Auth | Shared-password gate (`DASHBOARD_PASSWORD` + `SESSION_SECRET`) — Vercel Edge `middleware.js` + signed JWT session cookie. Added 2026-07-16 |
 
 Key files:
 - `public/app.jsx` — entire React frontend (single file, ~2900 lines)
 - `api/analyze.js` — Anthropic Sonnet 4.6 3-step pipeline (temperature 0); returns `usage` (tokens + $ cost) per generate
 - `api/screens.js` — Scout CRUD (`GET/POST/DELETE /api/screens`)
 - `api/db.js` — Neon pool + table init
+- `middleware.js` — Vercel Edge auth gate (redirects unauthed pages to `/login`, 401s unauthed `/api/*`)
+- `api/auth.js` + `api/lib/session.js` — shared-password login → signed JWT session cookie, logout
+- `public/login.html` — branded sign-in page
 - `prompts/` — `ga4.js`, `amplitude.js`, `identify.js`, `match.js`
 - `guidelines/` — all project docs (committed, pushed)
 - `SESSION.md` — local-only session state (gitignored)
@@ -34,7 +38,17 @@ Key files:
 
 ## Current State (as of 2026-07-16)
 
-No open blockers. DB lives in its own dedicated Neon project (`edvoy-events-agent`, not shared with any other tool). Scout images are on Cloudflare R2, not Neon — the old base64-in-Postgres transfer problem is permanently gone.
+No open blockers. DB lives in its own dedicated Neon project (`edvoy-events-agent`, not shared with any other tool). Scout images are on Cloudflare R2, not Neon — the old base64-in-Postgres transfer problem is permanently gone. **The whole app now sits behind a shared-password login gate** (see below).
+
+### Recent (2026-07-16, latest) — Shared-password login gate + sign-out (shipped + live)
+Whole app (pages + `/api/*`) now requires signing in with a shared team password, same pattern as the Edvoy Reviews Dashboard:
+- `middleware.js` (Vercel Edge) — unauthenticated page requests redirect to `/login`; unauthenticated `/api/*` requests get `401`. `/login`, `/login.html`, `/api/auth` stay public so the login flow itself is reachable. Verifies the session JWT with Web Crypto (edge runtime can't use `jsonwebtoken`).
+- `api/auth.js` + `api/lib/session.js` — `POST /api/auth {action:'login', password}` checks `DASHBOARD_PASSWORD` (constant-time compare) and sets a signed HttpOnly `edvoy_events_session` cookie (12h TTL, HS256 via `jsonwebtoken` + `SESSION_SECRET`); `{action:'logout'}` clears it. Rate-limited (10 attempts/min/IP, in-memory).
+- `public/login.html` — branded split-screen sign-in page (same visual language as the Reviews Dashboard's `login.html`: purple gradient brand panel + card). Logo tile renders `logo.png` at 38px (was 28px) — the asset has ~35% transparent padding baked in, so the smaller size looked tiny next to the tile.
+- Sidebar gets a **Sign out** icon button (`handleLogout` in `public/app.jsx`) next to the user block — posts `{action:'logout'}`, then redirects to `/login`.
+- **Env vars required** (set on Vercel Production + local `.env`): `DASHBOARD_PASSWORD`, `SESSION_SECRET` (long random string — without both, `/api/auth` responds `503 Auth not configured` and the whole app is unreachable). Password value lives only in `.env` (local, gitignored) and Vercel Production env vars — not written here.
+- **QA (local + live):** unauthed `/` → 302 to `/login`; unauthed `/api/*` → 401; wrong password → "Incorrect password", no cookie; correct password → cookie set, `/` and `/api/*` both 200; sign-out clears cookie and redirects back to `/login`. Verified on both `localhost:3333` and the live Vercel deploy. Zero console errors.
+- **New deps:** `jsonwebtoken` (Node runtime only — edge `middleware.js` avoids it, uses Web Crypto instead).
 
 ### Recent (2026-07-16) — Scout self-serve uploader: dup/exists + Replace scoped by platform (shipped + live)
 The `exists`/`dup` badge check and the **Replace** delete in `ScoutUploadModal` only filtered existing records by `screenName` + `space` — not `platform`. A GA4 event and an Amplitude event sharing a name in the same category falsely flagged each other as `exists`, and ticking Replace while uploading to one platform could silently delete the *other* platform's records for that category too. Fixed by adding `r.platform === platform` to both filters. Also fixed the Scout workspace footer's "N events" stat, which always showed the GA4 logo regardless of the active platform filter — now shows the icon(s) matching `scoutPlatformFilter` (both logos when "All" is selected). One file (`public/app.jsx`), no DB/API change. Doc: `guidelines/features/scout/SCOUT_FLOW.md`.
