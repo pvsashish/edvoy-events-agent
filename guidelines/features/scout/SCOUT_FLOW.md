@@ -1,6 +1,6 @@
 # Scout — Event Map
 
-**Last updated:** 2026-07-08 (self-serve in-product uploader added)
+**Last updated:** 2026-07-16 (duplicate/replace checks + footer stat scoped by platform — see note in §A) · earlier: 2026-07-08 (self-serve in-product uploader added)
 
 ## What It Does
 Visual analytics dictionary. Search an event name or screen category → see the real screenshot with the highlighted UI element. Useful for onboarding, QA, and confirming which element fires which event.
@@ -17,6 +17,8 @@ Any user opens **Scout → "Upload screens"** (primary button, top-right of the 
 5. Upload loops `POST /api/screens` with a progress bar → result screen (added N / failed list / all-failed state). Uploads go into the **active Space**.
 
 `ScoutUploadModal` in `public/app.jsx`. No code change needed for a new category — `CategoryBadge` falls back to a neutral grey for any `screenName` not in `CAT_COLOR`. Add-only: this UI has **no per-record delete** and **no approval gate** (writes straight to live for everyone in that Space); removing a bad upload means re-uploading the category with Replace, or a manual/API delete.
+
+> **Bug fix (2026-07-16): dup/exists + Replace were cross-platform.** The `exists`/`dup` badge check and the Replace-delete both filtered existing records by `screenName` + `space` only — **not** `platform`. Result: a GA4 event and an Amplitude event sharing a name in the same category falsely flagged `exists` on each other, and ticking **Replace** while uploading to one platform silently deleted the *other* platform's records for that category too. Fixed by adding `r.platform === platform` to both filters (`ScoutUploadModal`, `public/app.jsx`). Also fixed the workspace footer's "N events" stat, which always rendered the GA4 logo regardless of the active platform filter — it now shows the icon(s) matching the selected `scoutPlatformFilter` (both logos side-by-side when "All" is selected).
 
 ### B) Manual Claude ingestion (still valid for bulk/scripted runs)
 1. Take screenshots of the relevant edvoy page with the triggering element visible
@@ -43,7 +45,7 @@ edvoy_screens (
 
 **bbox:** `[x, y, width, height]` in raw pixels of the screenshot. Always `[0,0,0,0]` for manually captured screenshots (highlight is drawn into the image itself). Scout skips rendering the overlay when `bbox[2] === 0`.
 
-## Current Categories (227 records total: 105 GA4 + 122 Amplitude)
+## Current Categories (239 records total: 105 GA4 + 134 Amplitude)
 The table below is the original **GA4** set (105 records / 24 screens). **Amplitude** screens and later GA4 additions (Profile, Shortlist) were added afterwards (see notes) and are not all itemised here.
 
 | screenName (GA4) | Records |

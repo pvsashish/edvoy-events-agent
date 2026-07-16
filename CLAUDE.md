@@ -32,15 +32,18 @@ Key files:
 
 ---
 
-## Current State (as of 2026-07-08)
+## Current State (as of 2026-07-16)
 
 No open blockers. DB lives in its own dedicated Neon project (`edvoy-events-agent`, not shared with any other tool). Scout images are on Cloudflare R2, not Neon — the old base64-in-Postgres transfer problem is permanently gone.
+
+### Recent (2026-07-16) — Scout self-serve uploader: dup/exists + Replace scoped by platform (shipped + live)
+The `exists`/`dup` badge check and the **Replace** delete in `ScoutUploadModal` only filtered existing records by `screenName` + `space` — not `platform`. A GA4 event and an Amplitude event sharing a name in the same category falsely flagged each other as `exists`, and ticking Replace while uploading to one platform could silently delete the *other* platform's records for that category too. Fixed by adding `r.platform === platform` to both filters. Also fixed the Scout workspace footer's "N events" stat, which always showed the GA4 logo regardless of the active platform filter — now shows the icon(s) matching `scoutPlatformFilter` (both logos when "All" is selected). One file (`public/app.jsx`), no DB/API change. Doc: `guidelines/features/scout/SCOUT_FLOW.md`.
 
 ### Recent (2026-07-08) — Scout self-serve uploader (shipped + live)
 PMs can now add Scout screens themselves — no more "ask Claude to ingest". **Scout → "Upload screens"** (primary button, top-right of the Scout header) opens `ScoutUploadModal` (`public/app.jsx`): drag-drop a **folder or single files**, pick Category (datalist + folder-name auto-fill) + Platform (GA4/AMP logo toggle), **review each derived `event_name` before commit** (badges: `dup` in-batch, `exists` already-in-category, `no name` empty → skipped), optional **Replace** (deletes the category's existing records first, aborts on any delete-failure so it never silently duplicates), progress bar + result screen. Loops the existing `POST /api/screens`; uploads to the active Space. New categories need **no code change** (`CategoryBadge` greys unknowns). Add-only — no per-record delete, no approval gate (writes straight to live for that Space). Doc: `guidelines/features/scout/SCOUT_FLOW.md` (section A).
 
 ### Recent (2026-07-07)
-- **Scout: 227 events / 43 screens** (105 GA4 + 122 Amplitude), all `edvoy-student`. Latest ingests: Genie Banner Logged Out, Profile, Shortlist, Country Story, Course Card, Institution Card, Trending Subjects, Refer and Earn.
+- **Scout: 239 events / 47 screens** (105 GA4 + 134 Amplitude), all `edvoy-student`. Latest ingests: Genie Banner Logged Out, Profile, Shortlist, Country Story, Course Card, Institution Card, Trending Subjects, Refer and Earn.
 - **Scout canvas images**: hover-prefetch (warms a row's screenshot on hover) + branded loading animation (shimmer + purple gradient ring + "Loading Screenshot") while a not-yet-cached R2 image downloads.
 - **Scout search** normalized + word-order-independent (strips spaces/hyphens/underscores; every query word must appear in the screen or a single event name). **Clear** button next to Search resets query + results + canvas.
 - **Scout selection:** click an event to select, click again to deselect (toggle); "No event selected" empty state. **Pagination** is dense-pack + orphan-safe (~10/page, never strands <3 of a category).
@@ -74,7 +77,7 @@ DB moved out of the shared `reddit-tool-staging` Neon project into its own (`edv
 
 ### What's built and working
 - **Scout workspace**: unified card (header + canvas + event rail + footer), in-memory search, platform toggle (GA4/AMP), screen grouping, 10-per-page pagination, copy-to-clipboard per row, auto-fit canvas, form-factor chip. Images served from R2 CDN.
-- **Scout data**: 227 events across 43 screens (105 GA4 + 122 Amplitude)
+- **Scout data**: 239 events across 47 screens (105 GA4 + 134 Amplitude)
 - **Event Generator**: Space switcher (Student/Connect) + Specs History + Naming Converter + Tracking Sheet sync — all working
 
 ---
@@ -90,11 +93,11 @@ DB moved out of the shared `reddit-tool-staging` Neon project into its own (`edv
 
 **screenName must exactly match a `CAT_COLOR` key in `public/app.jsx` (~line 86).** Adding a new category = add it to CAT_COLOR first.
 
-**Current: 43 screens, 227 records (105 GA4 + 122 Amplitude), all `edvoy-student`.** Full per-category breakdown + change log in `guidelines/features/scout/SCOUT_FLOW.md` (source of truth for counts).
+**Current: 47 screens, 239 records (105 GA4 + 134 Amplitude), all `edvoy-student`.** Full per-category breakdown + change log in `guidelines/features/scout/SCOUT_FLOW.md` (source of truth for counts).
 
 **Country Page has 7 records** (1 duplicate `explore_universities_clicked` from a retry) — intentionally kept, clean up later.
 
-**Amplitude events:** ingested (80 records — Genie, Onboarding, Login/Sign-up, Settings, Logout, Stand-by, App Update, Genie Banner(+Logged Out), etc.). AMP tab in Scout is active.
+**Amplitude events:** ingested (134 records — Genie, Onboarding, Login/Sign-up, Settings, Logout, Stand-by, App Update, Genie Banner(+Logged Out), Profile, Shortlist, Country Story, Course Card, Institution Card, Trending Subjects, Refer and Earn, Trending Universities, Popular Institutions, Popular Courses, Give Us Feedback, etc.). AMP tab in Scout is active.
 
 ---
 

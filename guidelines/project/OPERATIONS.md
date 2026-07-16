@@ -1,6 +1,6 @@
 # Operations — Edvoy Events Agent
 
-**Last updated:** 2026-07-08 (Scout self-serve uploader — removing a bad upload) · earlier: 2026-06-30 (AI provider → Anthropic Sonnet 4.6)
+**Last updated:** 2026-07-16 (Replace-delete now scoped to the selected platform only) · earlier: 2026-07-08 (Scout self-serve uploader — removing a bad upload) · 2026-06-30 (AI provider → Anthropic Sonnet 4.6)
 
 ## Run Locally
 ```bash
@@ -58,4 +58,4 @@ npx vercel@latest dev --listen 3333
 | `Database operation failed` | Neon pool exhausted or cold start | Retry once; check Neon dashboard |
 | 404 on `/` in production | `outputDirectory` misconfigured | Verify `vercel.json` has `"outputDirectory": "public"` |
 | Model not found / 404 | Model ID changed/retired | Update `ANTHROPIC_MODEL` in `api/analyze.js` — check docs.claude.com model list |
-| Bad/duplicate Scout upload needs removing | Self-serve uploader is **add-only** (no per-record delete, no approval gate) | Re-upload that whole category with **Replace** ticked (wipes + re-adds), or `DELETE /api/screens` by `id` (get ids from `GET /api/screens`). Note: local `vercel dev` shares the live DB. |
+| Bad/duplicate Scout upload needs removing | Self-serve uploader is **add-only** (no per-record delete, no approval gate) | Re-upload that whole category with **Replace** ticked (wipes + re-adds **only the records on the platform you're uploading to**, as of the 2026-07-16 platform-scope fix — the other platform's records for that category are left alone), or `DELETE /api/screens` by `id` (get ids from `GET /api/screens`). Note: local `vercel dev` shares the live DB. |
