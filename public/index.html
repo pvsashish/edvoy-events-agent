@@ -378,8 +378,9 @@
         min-width: 0 !important;
       }
       .scout-canvas {
-        height: 320px !important;
-        max-height: 320px !important;
+        height: 460px !important;
+        max-height: 460px !important;
+        padding: 16px !important;
         border-right: none !important;
         border-bottom: 1px solid #ECECF0 !important;
       }
@@ -388,10 +389,32 @@
         max-height: 420px !important;
       }
     }
+
+    /* Tablet landscape (iPad 1024, iPad Air 1180, iPad Pro 11" 1194) — sidebar still
+       fits at full width, but Scout's fixed 380px rail crushes the canvas down to a
+       postage stamp. Keep the stacked mobile layout, just bigger. */
+    @media (min-width: 769px) and (max-width: 1200px) {
+      .scout-workspace-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+      }
+      .scout-workspace-grid * {
+        min-width: 0 !important;
+      }
+      .scout-canvas {
+        height: 560px !important;
+        max-height: 560px !important;
+        border-right: none !important;
+        border-bottom: 1px solid #ECECF0 !important;
+      }
+      .scout-rail-list {
+        height: 480px !important;
+        max-height: 480px !important;
+      }
+    }
   </style>
 </head>
 <body>
   <div id="root"></div>
-  <script type="text/babel" src="/app.jsx?v=25" data-type="module"></script>
+  <script type="text/babel" src="/app.jsx?v=29" data-type="module"></script>
 </body>
 </html>

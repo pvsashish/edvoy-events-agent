@@ -2361,8 +2361,24 @@ function App() {
               Edvoy Events
             </span>
           </div>
-          
-          <div style={{ width: 22 }} />
+
+          {activeTab === 'scout' ? (
+            <button
+              onClick={() => setScoutUploadOpen(true)}
+              aria-label="Upload screens"
+              title="Upload screens"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 30, height: 30, borderRadius: 8, border: 'none',
+                background: T.grad || T.purple, color: '#fff', cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+          ) : (
+            <div style={{ width: 22 }} />
+          )}
         </div>
 
         {/* Header Bar */}
@@ -3089,10 +3105,10 @@ function App() {
                               </p>
                             )}
                             
-                            <div style={{ fontSize: 11, color: T.t400, marginTop: 6, display: 'flex', gap: 12 }}>
-                              <span>Rows: {item.eventsCount}</span>
-                              <span>•</span>
-                              <span>Generated: {formatTimestamp(item.timestamp)}</span>
+                            <div style={{ fontSize: 11, color: T.t400, marginTop: 6, display: 'flex', flexWrap: 'wrap', rowGap: 2, gap: 12 }}>
+                              <span style={{ whiteSpace: 'nowrap' }}>Rows: {item.eventsCount}</span>
+                              <span style={{ whiteSpace: 'nowrap' }}>•</span>
+                              <span style={{ whiteSpace: 'nowrap' }}>Generated: {formatTimestamp(item.timestamp)}</span>
                             </div>
                           </div>
 
@@ -3544,7 +3560,7 @@ function App() {
                         </svg>
                       ))}
                       {/* Screenshot — auto-fit */}
-                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', maxWidth: '100%', maxHeight: '100%' }}>
+                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', maxWidth: '100%', height: '100%', maxHeight: '100%' }}>
                         {!scoutDisplayedImage && scoutImgLoading && (
                           <div style={{ width: 200, height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B7280', fontSize: 13 }}>Loading screenshot…</div>
                         )}
@@ -3559,7 +3575,7 @@ function App() {
                             src={scoutDisplayedImage}
                             alt={scoutSelected?.screenName}
                             ref={scoutImgRef}
-                            style={{ maxWidth: '100%', maxHeight: '656px', width: 'auto', height: 'auto', objectFit: 'contain', display: 'block', borderRadius: 24, boxShadow: '0 28px 60px -10px rgba(50,30,90,.22), 0 2px 6px rgba(15,15,20,.06)', opacity: scoutCanvasLoading ? 0.35 : 1, filter: scoutCanvasLoading ? 'blur(1.5px)' : 'none', transition: 'opacity 0.25s, filter 0.25s' }}
+                            style={{ maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto', objectFit: 'contain', display: 'block', borderRadius: 24, boxShadow: '0 28px 60px -10px rgba(50,30,90,.22), 0 2px 6px rgba(15,15,20,.06)', opacity: scoutCanvasLoading ? 0.35 : 1, filter: scoutCanvasLoading ? 'blur(1.5px)' : 'none', transition: 'opacity 0.25s, filter 0.25s' }}
                             onLoad={(e) => { setScoutImgDims({ w: e.target.naturalWidth || 1, h: e.target.naturalHeight || 1 }); setScoutCanvasLoading(false); }}
                             onError={() => setScoutCanvasLoading(false)}
                           />
