@@ -36,11 +36,22 @@ Key files:
 
 ---
 
-## Current State (as of 2026-07-16)
+## Current State (as of 2026-07-21)
 
-No open blockers. DB lives in its own dedicated Neon project (`edvoy-events-agent`, not shared with any other tool). Scout images are on Cloudflare R2, not Neon — the old base64-in-Postgres transfer problem is permanently gone. **The whole app now sits behind a shared-password login gate** (see below).
+No open blockers. DB lives in its own dedicated Neon project (`edvoy-events-agent`, not shared with any other tool). Scout images are on Cloudflare R2, not Neon — the old base64-in-Postgres transfer problem is permanently gone. The whole app sits behind a shared-password login gate (2026-07-16). **Scout's canvas + the whole app's responsive layout was overhauled 2026-07-21** (see below) — the previous "Mobile Responsive Layout: complete" status was true for phones at the exact widths tested at the time, but a hardcoded desktop pixel value in the Scout canvas broke on a real iPhone 15 Pro.
 
-### Recent (2026-07-16, latest) — Shared-password login gate + sign-out (shipped + live)
+### Recent (2026-07-21, latest) — Scout canvas responsive fix + tablet breakpoint (shipped + live)
+User reported Scout "wasn't responsive at all" on a real iPhone 15 Pro — a screenshot showed the Scout canvas rendering a course-comparison screen cropped into a small, oddly-proportioned sliver. Root cause: the canvas `<img>` (`public/app.jsx`) had a hardcoded `maxHeight: 656px` — hand-tuned for the desktop canvas box (720px − 64px padding) — that never adapted when the mobile CSS shrank the canvas box to 320px. A portrait screenshot laid out at up to 656px tall regardless of viewport, then got silently clipped by the canvas's `overflow:hidden`.
+- **Fix:** `<img>` `maxHeight` is now `100%`, resolved against an explicit `height:'100%'` on its wrapper (the canvas's `align-items:'center'` doesn't stretch children, so an unstretched wrapper has no real height for a percentage to resolve against — had to set it explicitly).
+- **Mobile canvas box enlarged** 320→460px (`public/index.html`) so screenshots render at a legible size, not a postage stamp, even after fixing the clipping.
+- **New tablet breakpoint (769–1200px)**, covering iPad landscape (1024), iPad Air landscape (1180), iPad Pro 11" landscape (1194) — these previously fell into the desktop 3-column grid, which crushed the canvas to ~330px wide next to the fixed 380px event rail. Now they get the same stacked single-column layout as mobile, just bigger (canvas 560px).
+- **Mobile header was missing the "Upload screens" button entirely** — it only existed in the desktop-only header bar (`.desktop-header-bar`, hidden ≤768px). Added a purple "+" icon button to the mobile header bar, shown only on the Scout tab.
+- **Specs History bug found in QA**: the "Rows: N • Generated: ..." metadata line wrapped mid-word at narrow widths (flex row had no `flexWrap`) — fixed with `flexWrap:'wrap'` + `whiteSpace:'nowrap'` per span.
+- **Incident during QA (self-caught, self-fixed):** while exploratory-testing at 375px, a misjudged tap landed on a Specs History delete icon instead of a thumbnail and deleted a real record ("Custom Event Spec", 2 rows, space `edvoy-student`) from the live shared DB. Recovered fully via a prior network-log capture of the exact record (re-POSTed with the same `id`/timestamp/events/context) — only the R2 thumbnail image was unrecoverable (no copy of it existed anywhere), everything else restored byte-for-byte. Confirmed via API + UI.
+- **QA:** tested at 375/390/428/768/1024/1194/1280/1440px widths (iPhone SE through iPad Pro landscape to desktop), zero horizontal overflow anywhere, zero desktop regression (1280+ pixel-identical to before), zero console errors. Verified live on `edvoy-events-gen.vercel.app` post-deploy via bundle-version check (`app.jsx?v=29`) and canvas dimension/overflow checks.
+- **Shipped:** commit `24fa02d` on `main` → pushed → Vercel auto-deployed. Docs: `CLAUDE.md`, `guidelines/project/ARCHITECTURE.md`, `guidelines/features/FEATURES_INDEX.md`, `guidelines/features/FEATURE_TO_CODE_OWNERSHIP_MAP.md`, `guidelines/features/scout/SCOUT_FLOW.md`, `guidelines/features/specs_history/SPECS_HISTORY_FLOW.md`.
+
+### Recent (2026-07-16) — Shared-password login gate + sign-out (shipped + live)
 Whole app (pages + `/api/*`) now requires signing in with a shared team password, same pattern as the Edvoy Reviews Dashboard:
 - `middleware.js` (Vercel Edge) — unauthenticated page requests redirect to `/login`; unauthenticated `/api/*` requests get `401`. `/login`, `/login.html`, `/api/auth` stay public so the login flow itself is reachable. Verifies the session JWT with Web Crypto (edge runtime can't use `jsonwebtoken`).
 - `api/auth.js` + `api/lib/session.js` — `POST /api/auth {action:'login', password}` checks `DASHBOARD_PASSWORD` (constant-time compare) and sets a signed HttpOnly `edvoy_events_session` cookie (12h TTL, HS256 via `jsonwebtoken` + `SESSION_SECRET`); `{action:'logout'}` clears it. Rate-limited (10 attempts/min/IP, in-memory).
@@ -57,7 +68,7 @@ The `exists`/`dup` badge check and the **Replace** delete in `ScoutUploadModal` 
 PMs can now add Scout screens themselves — no more "ask Claude to ingest". **Scout → "Upload screens"** (primary button, top-right of the Scout header) opens `ScoutUploadModal` (`public/app.jsx`): drag-drop a **folder or single files**, pick Category (datalist + folder-name auto-fill) + Platform (GA4/AMP logo toggle), **review each derived `event_name` before commit** (badges: `dup` in-batch, `exists` already-in-category, `no name` empty → skipped), optional **Replace** (deletes the category's existing records first, aborts on any delete-failure so it never silently duplicates), progress bar + result screen. Loops the existing `POST /api/screens`; uploads to the active Space. New categories need **no code change** (`CategoryBadge` greys unknowns). Add-only — no per-record delete, no approval gate (writes straight to live for that Space). Doc: `guidelines/features/scout/SCOUT_FLOW.md` (section A).
 
 ### Recent (2026-07-07)
-- **Scout: 239 events / 47 screens** (105 GA4 + 134 Amplitude), all `edvoy-student`. Latest ingests: Genie Banner Logged Out, Profile, Shortlist, Country Story, Course Card, Institution Card, Trending Subjects, Refer and Earn.
+- **Scout: 242 events / 47 screens** (105 GA4 + 137 Amplitude), all `edvoy-student`. Latest ingests: Genie Banner Logged Out, Profile, Shortlist, Country Story, Course Card, Institution Card, Trending Subjects, Refer and Earn.
 - **Scout canvas images**: hover-prefetch (warms a row's screenshot on hover) + branded loading animation (shimmer + purple gradient ring + "Loading Screenshot") while a not-yet-cached R2 image downloads.
 - **Scout search** normalized + word-order-independent (strips spaces/hyphens/underscores; every query word must appear in the screen or a single event name). **Clear** button next to Search resets query + results + canvas.
 - **Scout selection:** click an event to select, click again to deselect (toggle); "No event selected" empty state. **Pagination** is dense-pack + orphan-safe (~10/page, never strands <3 of a category).
@@ -91,7 +102,7 @@ DB moved out of the shared `reddit-tool-staging` Neon project into its own (`edv
 
 ### What's built and working
 - **Scout workspace**: unified card (header + canvas + event rail + footer), in-memory search, platform toggle (GA4/AMP), screen grouping, 10-per-page pagination, copy-to-clipboard per row, auto-fit canvas, form-factor chip. Images served from R2 CDN.
-- **Scout data**: 239 events across 47 screens (105 GA4 + 134 Amplitude)
+- **Scout data**: 242 events across 47 screens (105 GA4 + 137 Amplitude)
 - **Event Generator**: Space switcher (Student/Connect) + Specs History + Naming Converter + Tracking Sheet sync — all working
 
 ---
@@ -107,11 +118,11 @@ DB moved out of the shared `reddit-tool-staging` Neon project into its own (`edv
 
 **screenName must exactly match a `CAT_COLOR` key in `public/app.jsx` (~line 86).** Adding a new category = add it to CAT_COLOR first.
 
-**Current: 47 screens, 239 records (105 GA4 + 134 Amplitude), all `edvoy-student`.** Full per-category breakdown + change log in `guidelines/features/scout/SCOUT_FLOW.md` (source of truth for counts).
+**Current: 47 screens, 242 records (105 GA4 + 137 Amplitude), all `edvoy-student`.** Full per-category breakdown + change log in `guidelines/features/scout/SCOUT_FLOW.md` (source of truth for counts).
 
 **Country Page has 7 records** (1 duplicate `explore_universities_clicked` from a retry) — intentionally kept, clean up later.
 
-**Amplitude events:** ingested (134 records — Genie, Onboarding, Login/Sign-up, Settings, Logout, Stand-by, App Update, Genie Banner(+Logged Out), Profile, Shortlist, Country Story, Course Card, Institution Card, Trending Subjects, Refer and Earn, Trending Universities, Popular Institutions, Popular Courses, Give Us Feedback, etc.). AMP tab in Scout is active.
+**Amplitude events:** ingested (137 records — Genie, Onboarding, Login/Sign-up, Settings, Logout, Stand-by, App Update, Genie Banner(+Logged Out), Profile, Shortlist, Country Story, Course Card, Institution Card, Trending Subjects, Refer and Earn, Trending Universities, Popular Institutions, Popular Courses, Give Us Feedback, etc.). AMP tab in Scout is active.
 
 ---
 

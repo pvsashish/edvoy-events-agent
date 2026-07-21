@@ -1,6 +1,6 @@
 # Specs History Flow
 
-**Last updated:** 2026-07-03 (Space-scoped; thumbnails moved to Cloudflare R2 + auto-migration)
+**Last updated:** 2026-07-21 (list-row responsive fix — see below) · 2026-07-03 (Space-scoped; thumbnails moved to Cloudflare R2 + auto-migration)
 **Status:** active
 
 ## What It Does
@@ -80,6 +80,7 @@ Before modifying:
 ## Change Log
 | Date | Change | Author |
 |------|--------|--------|
+| 2026-07-21 | List row's "Rows: N • Generated: ..." metadata line wrapped mid-word at narrow widths (the flex row had no `flexWrap`, so individual spans shrank and their text broke instead of the whole label unit dropping to the next line). Added `flexWrap:'wrap'` + `whiteSpace:'nowrap'` on each span so "Rows: N" and "Generated: ..." always wrap as intact units. | session |
 | 2026-07-06 | History thumbnails are now clickable → open the shared image-preview lightbox (prev/next across all history items with a thumbnail; `stopPropagation` so the click doesn't also load the spec). See "Image Preview Lightbox" in FEATURES_INDEX. | session |
 | 2026-07-03 | Thumbnails moved to Cloudflare R2 (`history/<id>`); added PATCH for self-healing client-side migration of pre-existing localStorage-only thumbnails | session |
 | 2026-07-03 | Scoped by Space (`edvoy-student`/`edvoy-connect`); `clearAll` accepts optional `space` | session |

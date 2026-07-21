@@ -1,6 +1,6 @@
 # Scout — Event Map
 
-**Last updated:** 2026-07-16 (duplicate/replace checks + footer stat scoped by platform — see note in §A) · earlier: 2026-07-08 (self-serve in-product uploader added)
+**Last updated:** 2026-07-21 (canvas responsive fix — see "Auto-fit canvas" below) · 2026-07-16 (duplicate/replace checks + footer stat scoped by platform — see note in §A) · earlier: 2026-07-08 (self-serve in-product uploader added)
 
 ## What It Does
 Visual analytics dictionary. Search an event name or screen category → see the real screenshot with the highlighted UI element. Useful for onboarding, QA, and confirming which element fires which event.
@@ -9,7 +9,7 @@ Visual analytics dictionary. Search an event name or screen category → see the
 Two ways, both write to the same `POST /api/screens` (R2 image + Neon record):
 
 ### A) Self-serve uploader (in-product, 2026-07-08) — the primary way now
-Any user opens **Scout → "Upload screens"** (primary button, top-right of the Scout header) → a modal:
+Any user opens **Scout → "Upload screens"** (primary button, top-right of the Scout header on desktop; a purple "+" icon in the mobile header bar, added 2026-07-21 — it was previously only in the desktop-only header, unreachable on mobile) → a modal:
 1. **Drop a folder OR individual files** (drag-drop walks a dropped directory tree; or "Choose files" / "Choose folder"). Single-file upload supported.
 2. **Category** (free text + datalist of existing categories; auto-filled from a dropped folder's name) and **Platform** (GA4 / Amplitude segmented toggle with the real platform logos).
 3. **Review list** — every file shows its derived `event_name` (filename minus extension) before commit, with badges: `dup` (duplicate name within the batch), `exists` (already saved in this category → would create a duplicate record unless Replace is ticked), `no name` (filename derives an empty name → **excluded** from upload). Remove any row with ✕.
@@ -45,7 +45,7 @@ edvoy_screens (
 
 **bbox:** `[x, y, width, height]` in raw pixels of the screenshot. Always `[0,0,0,0]` for manually captured screenshots (highlight is drawn into the image itself). Scout skips rendering the overlay when `bbox[2] === 0`.
 
-## Current Categories (239 records total: 105 GA4 + 134 Amplitude)
+## Current Categories (242 records total: 105 GA4 + 137 Amplitude)
 The table below is the original **GA4** set (105 records / 24 screens). **Amplitude** screens and later GA4 additions (Profile, Shortlist) were added afterwards (see notes) and are not all itemised here.
 
 | screenName (GA4) | Records |
@@ -105,14 +105,14 @@ Key behaviours:
 - **Screen grouping**: events grouped by screenName with coloured section headers, 10 per page
 - **Pagination**: client-side, 10 events/page, shown in workspace footer
 - **Copy button**: per event row, copies event name to clipboard, shows dark toast confirmation
-- **Auto-fit canvas**: screenshot centered in 720px fixed-height canvas, `max-width/max-height: 100%; object-fit: contain` — any size screenshot fits without layout break
+- **Auto-fit canvas**: screenshot centered in the `.scout-canvas` box, `max-width/max-height: 100%; object-fit: contain` — any size screenshot fits without layout break. Canvas box height is breakpoint-driven: **720px desktop** (>1200px), **560px tablet** (769–1200px, `public/index.html`), **460px mobile** (≤768px). Fixed 2026-07-21: the `<img>`'s own `maxHeight` used to be a hardcoded `656px` constant (desktop-tuned: 720 box − 64 padding) that ignored the smaller mobile/tablet boxes entirely — a portrait screenshot would lay out at up to 656px tall, get clipped by the canvas's `overflow:hidden`, and render as an unreadable cropped sliver on phones. Now the `<img>`'s `maxHeight` is `100%` of its wrapper, and the wrapper has an explicit `height:'100%'` (needed because the canvas's `align-items:'center'` doesn't stretch children by default, so a bare `maxHeight:'100%'` on an auto-height wrapper resolves to nothing) — so the image cap always tracks the real per-breakpoint canvas size.
 - **Red highlight box**: `#E53935`, `border-radius: 14px`, positioned via bbox % of natural image dims (only when `bbox[2] > 0`)
 - **Form-factor chip**: Mobile if `imgH > imgW`, Desktop otherwise
 
 ## Workspace redesign (2026-06-23)
 Replaced the old two-card layout (preview card + list card) with a single unified workspace card:
 - **Header strip**: screen name + GA4 chip + form-factor chip (left) · All/GA4/AMP segmented filter (right)
-- **Body**: radial purple gradient canvas (left, 720px) + event rail (right, 380px) in CSS grid
+- **Body**: radial purple gradient canvas (left, 720px) + event rail (right, 380px) in CSS grid — **desktop only (>1200px)**. At 769–1200px (tablet) and ≤768px (mobile) the grid collapses to a single stacked column (`.scout-workspace-grid` in `public/index.html`), canvas on top full-width, rail below.
 - **Footer**: GA4 event count + screen count stats (left) · Prev/page numbers/Next pagination (right)
 - Design tokens from handoff: `--purple: #7C3AED`, `--red: #E53935`, card shadow `0 16px 48px -24px rgba(15,15,20,.10)`
 
