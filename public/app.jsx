@@ -1150,6 +1150,10 @@ function App() {
   const [scoutPage, setScoutPage]                     = useState(1);
   const [scoutToast, setScoutToast]                   = useState(null);
   const [scoutHoveredId, setScoutHoveredId]           = useState(null);
+  // Touchscreens have no real "hover" — attaching hover handlers there makes iOS Safari
+  // treat the row as hover-reveal content, requiring a first tap just to show it and a
+  // second to actually select it. Only wire up hover on devices that truly support it.
+  const [scoutSupportsHover]                          = useState(() => typeof window !== 'undefined' && window.matchMedia?.('(hover: hover)').matches);
   // Scout self-serve upload (folder of PNGs → screens, filename = event_name) — modal
   const [scoutUploadOpen, setScoutUploadOpen]         = useState(false);
 
@@ -3657,18 +3661,19 @@ function App() {
                                         if (s.id === scoutSelected?.id) { clearScoutSelection(); }
                                         else { setScoutSelected(s); setScoutActiveEvent(s.events?.[0] || null); }
                                       }}
-                                      onMouseEnter={() => {
-                                        setScoutHoveredId(s.id);
-                                        // Warm the screenshot in the browser cache before the click,
-                                        // so selecting it feels instant. Deduped so we fetch once.
-                                        if (s.image && !scoutPrefetchedRef.current.has(s.image)) {
-                                          scoutPrefetchedRef.current.add(s.image);
-                                          const im = new Image();
-                                          im.src = s.image;
-                                        }
-                                      }}
-                                      onMouseLeave={() => setScoutHoveredId(null)}
-                                      onTouchStart={() => {}}
+                                      {...(scoutSupportsHover ? {
+                                        onMouseEnter: () => {
+                                          setScoutHoveredId(s.id);
+                                          // Warm the screenshot in the browser cache before the click,
+                                          // so selecting it feels instant. Deduped so we fetch once.
+                                          if (s.image && !scoutPrefetchedRef.current.has(s.image)) {
+                                            scoutPrefetchedRef.current.add(s.image);
+                                            const im = new Image();
+                                            im.src = s.image;
+                                          }
+                                        },
+                                        onMouseLeave: () => setScoutHoveredId(null),
+                                      } : {})}
                                       style={{
                                         display: 'flex', alignItems: 'center', gap: 10,
                                         padding: '9px 18px 9px 15px', cursor: 'pointer',
