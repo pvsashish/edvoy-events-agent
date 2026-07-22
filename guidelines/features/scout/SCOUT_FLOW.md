@@ -1,6 +1,6 @@
 # Scout — Event Map
 
-**Last updated:** 2026-07-21 (canvas responsive fix — see "Auto-fit canvas" below) · 2026-07-16 (duplicate/replace checks + footer stat scoped by platform — see note in §A) · earlier: 2026-07-08 (self-serve in-product uploader added)
+**Last updated:** 2026-07-22 (event rows needed a double-tap on iOS — see hover-prefetch note below) · 2026-07-21 (canvas responsive fix — see "Auto-fit canvas" below) · 2026-07-16 (duplicate/replace checks + footer stat scoped by platform — see note in §A) · earlier: 2026-07-08 (self-serve in-product uploader added)
 
 ## What It Does
 Visual analytics dictionary. Search an event name or screen category → see the real screenshot with the highlighted UI element. Useful for onboarding, QA, and confirming which element fires which event.
@@ -96,7 +96,7 @@ The table below is the original **GA4** set (105 records / 24 screens). **Amplit
 | DELETE | `/api/screens` | `{ id }` for one, `{ clearAll: true }` for all |
 
 ## Frontend (app.jsx)
-State: `scoutQuery`, `scoutResults`, `scoutAllResults`, `scoutSelected`, `scoutActiveEvent`, `scoutImgDims`, `scoutImgLoading`, `scoutSearched`, `scoutLoading`, `scoutLastSearchQuery`, `scoutDisplayedImage`, `scoutPlatformFilter`, `scoutPage`, `scoutToast`, `scoutHoveredId`
+State: `scoutQuery`, `scoutResults`, `scoutAllResults`, `scoutSelected`, `scoutActiveEvent`, `scoutImgDims`, `scoutImgLoading`, `scoutSearched`, `scoutLoading`, `scoutLastSearchQuery`, `scoutDisplayedImage`, `scoutPlatformFilter`, `scoutPage`, `scoutToast`, `scoutHoveredId`, `scoutSupportsHover`
 
 Key behaviours:
 - **In-memory search**: full list loaded once on mount into `scoutAllResults`; `runScoutSearch(q)` filters in-memory (instant, no DB round-trip). DB query only as fallback if mount preload hasn't landed yet.
@@ -105,6 +105,7 @@ Key behaviours:
 - **Screen grouping**: events grouped by screenName with coloured section headers, 10 per page
 - **Pagination**: client-side, 10 events/page, shown in workspace footer
 - **Copy button**: per event row, copies event name to clipboard, shows dark toast confirmation
+- **Hover-prefetch, touch-gated (fixed 2026-07-22):** each row's `onMouseEnter`/`onMouseLeave` (background highlight + copy-icon reveal + image prefetch) are only attached when `scoutSupportsHover` is true (`matchMedia('(hover: hover)').matches`, checked once at mount). Previously they were always attached — on iOS Safari, an element with hover-triggered visual changes needs a **first tap just to reveal the hover state**, and only a second tap actually fires the click, so every event needed two taps to select on a real iPhone. An earlier attempted fix (empty `onTouchStart`) did not work — the trigger is the hover-reveal pattern itself, not a missing touch handler. Touchscreens now skip the hover handlers entirely, so a single tap goes straight to selecting. Desktop/mouse behaviour is unchanged.
 - **Auto-fit canvas**: screenshot centered in the `.scout-canvas` box, `max-width/max-height: 100%; object-fit: contain` — any size screenshot fits without layout break. Canvas box height is breakpoint-driven: **720px desktop** (>1200px), **560px tablet** (769–1200px, `public/index.html`), **460px mobile** (≤768px). Fixed 2026-07-21: the `<img>`'s own `maxHeight` used to be a hardcoded `656px` constant (desktop-tuned: 720 box − 64 padding) that ignored the smaller mobile/tablet boxes entirely — a portrait screenshot would lay out at up to 656px tall, get clipped by the canvas's `overflow:hidden`, and render as an unreadable cropped sliver on phones. Now the `<img>`'s `maxHeight` is `100%` of its wrapper, and the wrapper has an explicit `height:'100%'` (needed because the canvas's `align-items:'center'` doesn't stretch children by default, so a bare `maxHeight:'100%'` on an auto-height wrapper resolves to nothing) — so the image cap always tracks the real per-breakpoint canvas size.
 - **Red highlight box**: `#E53935`, `border-radius: 14px`, positioned via bbox % of natural image dims (only when `bbox[2] > 0`)
 - **Form-factor chip**: Mobile if `imgH > imgW`, Desktop otherwise
