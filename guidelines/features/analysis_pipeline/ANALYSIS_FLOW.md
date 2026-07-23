@@ -1,6 +1,6 @@
 # AI Analysis Flow (Anthropic Claude Sonnet 4.6)
 
-**Last updated:** 2026-07-06 (renamed from GEMINI_ANALYSIS_FLOW.md → ANALYSIS_FLOW.md; Anthropic Sonnet 4.6 only; Groq + Gemini removed; feature-context steering)
+**Last updated:** 2026-07-23 (API Usage sidebar card corrected + simplified — no ratio bar, no Reset) · 2026-07-06 (renamed from GEMINI_ANALYSIS_FLOW.md → ANALYSIS_FLOW.md; Anthropic Sonnet 4.6 only; Groq + Gemini removed; feature-context steering)
 **Status:** active
 
 ## What It Does
@@ -61,7 +61,7 @@ When the user generates GA4 first and then switches to Amplitude (or vice versa)
   "usage": { "input_tokens": 4521, "output_tokens": 380, "cost_usd": 0.0192, "calls": 3 }
 }
 ```
-`usage` is summed across all 3 Anthropic calls. Frontend (`app.jsx`) shows it two ways: a per-generate `$cost` chip in the results header, and a cumulative **API Usage** card in the sidebar (`totalUsage` state, with a Reset). As of 2026-07-07 the cumulative total is **persisted server-side** in the `edvoy_usage` table via `api/usage.js` (loaded on mount, atomically incremented per generate) so it survives a browser cache clear and is consistent across devices; `localStorage` (`edvoy_total_usage`) is now just an offline cache.
+`usage` is summed across all 3 Anthropic calls. Frontend (`app.jsx`) shows it two ways: a per-generate `$cost` chip in the results header (4dp precision), and a running **API Usage** card in the sidebar (`totalUsage` state — cost shown at 2dp, e.g. `$0.88`). As of 2026-07-07 the total is **persisted server-side** in the `edvoy_usage` table via `api/usage.js` (loaded on mount, atomically incremented per generate) so it survives a browser cache clear and is consistent across devices; `localStorage` (`edvoy_total_usage`) is now just an offline cache. **2026-07-23:** the sidebar card was simplified — dropped the input/output-split progress bar (it read as a usage-limit gauge; there is no limit anywhere in the app) and the manual Reset button (the `POST /api/usage {reset:true}` endpoint still exists, just not wired to a UI control). The `cost_usd`/token totals were also corrected — the row had been seeded from a 2026-07-07 estimate whose error compounded into every real delta added since; recalculated against the user's verified real spend and Anthropic's actual per-token pricing so cost and tokens are consistent with each other.
 
 ## Error Handling
 - Non-POST → 405
@@ -90,6 +90,7 @@ Applied to every row before returning:
 ## Change Log
 | Date | Change |
 |------|--------|
+| 2026-07-23 | **API Usage sidebar card corrected + simplified.** `cost_usd` was inflated by a 2026-07-07 estimate-seed error; recalculated against verified real spend ($0.88) and confirmed Sonnet 4.6 pricing, tokens rescaled to match (202,104 total, same input/output ratio). Removed the input/output-split bar (misread as a limit gauge) and the manual Reset button. Cost display precision 4dp → 2dp. |
 | 2026-06-30 | **Switched provider Groq → Anthropic Claude Sonnet 4.6** (`claude-sonnet-4-6`, temp 0, Messages API). Returns `usage` (tokens + $ cost) → per-generate cost chip + cumulative sidebar API Usage card. Fixed `from`-on-Amplitude filler (removed stale `from` from amplitude DEFAULT_PARAMETERS + hard server-side filter). Groq removed. |
 | 2026-06-30 | **Gemini fully removed — Groq-only, temperature 0 + seed 42 (reproducible on real screenshots; MoE not bit-for-bit).** Reuse-before-inventing for events + params; sheet parser returns `eventParams`; matched-event param hint injected; no screen-view events; matcher tightened (tab_clicked ≠ screen view); parameter casing preserved; row dedup. |
 | 2026-06-25 | Added Groq Llama-4-Scout as auto-fallback when Gemini returns 429; llama-3.2-90b-vision-preview decommissioned by Groq → updated to llama-4-scout-17b-16e-instruct |
