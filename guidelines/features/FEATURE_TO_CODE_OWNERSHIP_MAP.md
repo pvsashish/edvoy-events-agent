@@ -1,13 +1,13 @@
 # Feature → Code Ownership Map
 
-**Last updated:** 2026-07-22 (Scout iOS double-tap fix — `public/app.jsx`) · 2026-07-21 (Scout canvas responsive fix + tablet breakpoint — `public/app.jsx`, `public/index.html`) · 2026-07-16 (added `api/auth.js`, `api/lib/session.js`, `middleware.js`, `public/login.html` — shared-password login gate)
+**Last updated:** 2026-10-27 (Scout Trash — `api/screens.js`, `api/db.js`, `public/app.jsx`, `public/index.html` v32) · 2026-07-22 (Scout iOS double-tap fix — `public/app.jsx`) · 2026-07-21 (Scout canvas responsive fix + tablet breakpoint — `public/app.jsx`, `public/index.html`) · 2026-07-16 (added `api/auth.js`, `api/lib/session.js`, `middleware.js`, `public/login.html` — shared-password login gate)
 
 | File | Feature | Notes |
 |------|---------|-------|
 | `api/analyze.js` | Anthropic Vision Analysis, Sample Value Normalisation, Cost Usage | POST handler — validates input, calls Anthropic Sonnet 4.6, normalises events, returns events + usage JSON |
 | `api/db.js` | DB layer (Specs History, Scout, Usage) | Neon PostgreSQL pool + self-initialising `edvoy_specs_history`, `edvoy_screens`, `edvoy_settings`, `edvoy_usage` tables; `pool.on('error')` guard |
 | `api/history.js` | Specs History CRUD | GET/POST/DELETE handler — wraps db.js; returns `{ history: [], warning }` if `DATABASE_URL` unset; Space-aware |
-| `api/screens.js` | Scout CRUD (incl. self-serve upload) | GET/POST/DELETE `/api/screens` — POST uploads image to R2 + stores `image_url`; DELETE cleans the R2 object; Space-aware. Backs both Claude ingestion and the in-product `ScoutUploadModal` |
+| `api/screens.js` | Scout CRUD (incl. self-serve upload) | GET/POST/DELETE `/api/screens` — lists exclude soft-deleted rows (`deleted_at`); `GET ?trash=1`; POST `{action:'trash'|'restore'}` = soft delete/restore; DELETE = permanent (`{id}` / `{emptyTrash,space}`). POST uploads image to R2 + stores `image_url`; DELETE cleans the R2 object; Space-aware. Backs both Claude ingestion and the in-product `ScoutUploadModal` |
 | `api/usage.js` | API Usage counter (DB-persisted) | GET / POST `{delta}` atomic increment / `{reset}` / `{set}` against singleton `edvoy_usage` row |
 | `api/r2.js` | Cloudflare R2 helper | `uploadDataUrl`, `deleteByUrl` (S3-compatible); used by Scout images + History thumbnails |
 | `api/auth.js` | Login gate — password exchange | POST `/api/auth` — `{action:'login',password}` → signed session cookie (rate-limited 10/min/IP); `{action:'logout'}` clears it. Added 2026-07-16 |

@@ -1,6 +1,6 @@
 # Architecture — Edvoy Events Agent
 
-**Last updated:** 2026-07-23 (API Usage card cost/token correction + UI simplification — see Database Schema below) · 2026-07-22 (Scout iOS double-tap fix — see "Hover-capability gating" below) · 2026-07-21 (Scout canvas responsive fix + new tablet breakpoint — see "Responsive design" below) · 2026-07-16 (shared-password login gate — `middleware.js`, `api/auth.js`, `public/login.html`) · earlier same day: Scout `ScoutUploadModal` dup/exists/Replace checks + footer stat scoped by platform · 2026-07-08 (Scout self-serve in-product uploader — `ScoutUploadModal`) · 2026-07-03 (Mobile/tablet responsive fixes incl. a global `<aside>` CSS bug; Space switcher incl. Scout scoping + sheet-edit-box fix; History thumbnails on Cloudflare R2 + auto-migration; Scout images on Cloudflare R2; dedicated Neon project; Postgres pool crash fix)
+**Last updated:** 2026-10-27 (Scout Trash: `edvoy_screens.deleted_at` soft delete) · 2026-07-23 (API Usage card cost/token correction + UI simplification — see Database Schema below) · 2026-07-22 (Scout iOS double-tap fix — see "Hover-capability gating" below) · 2026-07-21 (Scout canvas responsive fix + new tablet breakpoint — see "Responsive design" below) · 2026-07-16 (shared-password login gate — `middleware.js`, `api/auth.js`, `public/login.html`) · earlier same day: Scout `ScoutUploadModal` dup/exists/Replace checks + footer stat scoped by platform · 2026-07-08 (Scout self-serve in-product uploader — `ScoutUploadModal`) · 2026-07-03 (Mobile/tablet responsive fixes incl. a global `<aside>` CSS bug; Space switcher incl. Scout scoping + sheet-edit-box fix; History thumbnails on Cloudflare R2 + auto-migration; Scout images on Cloudflare R2; dedicated Neon project; Postgres pool crash fix)
 
 ## What It Does
 PM tool for Edvoy's analytics team. Upload screenshots or videos of the Edvoy web portal or mobile app, select GA4 or Amplitude, and receive correctly formatted analytics events + parameters matching the tracking sheet format (Category, Suggested Event Name, Parameter, Sample Value). Specs are persisted to Neon PostgreSQL with localStorage fallback. Also includes Scout — a visual event map that shows real screenshots with highlighted UI elements for each tracked event.
@@ -86,6 +86,7 @@ Table: `edvoy_screens` (Scout)
 | `events` | JSONB | `[{ event_name, label, bbox: [x,y,w,h] }]` |
 | `space` | VARCHAR(50) | `edvoy-student` (default) or `edvoy-connect` — added 2026-07-03, Scout is now Space-scoped |
 | `created_at` | TIMESTAMP | Auto-set |
+| `deleted_at` | TIMESTAMP NULL | NULL = live; set = in Scout Trash (soft delete, 2026-10-27). Lists exclude non-NULL; `?trash=1` returns them. Permanent delete = DELETE (also removes the R2 image) |
 
 Table: `edvoy_specs_history`
 | Column | Type | Notes |

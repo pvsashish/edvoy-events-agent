@@ -1,6 +1,6 @@
 # Operations — Edvoy Events Agent
 
-**Last updated:** 2026-07-16 (shared-password login gate — new env vars + first-time setup) · earlier same day: Replace-delete now scoped to the selected platform only · 2026-07-08 (Scout self-serve uploader — removing a bad upload) · 2026-06-30 (AI provider → Anthropic Sonnet 4.6)
+**Last updated:** 2026-10-27 (Scout Trash — per-event delete now exists, reversible) · 2026-07-16 (shared-password login gate — new env vars + first-time setup) · earlier same day: Replace-delete now scoped to the selected platform only · 2026-07-08 (Scout self-serve uploader — removing a bad upload) · 2026-06-30 (AI provider → Anthropic Sonnet 4.6)
 
 ## Run Locally
 ```bash
@@ -63,7 +63,7 @@ npx vercel@latest dev --listen 3333
 | `Database operation failed` | Neon pool exhausted or cold start | Retry once; check Neon dashboard |
 | 404 on `/` in production | `outputDirectory` misconfigured | Verify `vercel.json` has `"outputDirectory": "public"` |
 | Model not found / 404 | Model ID changed/retired | Update `ANTHROPIC_MODEL` in `api/analyze.js` — check docs.claude.com model list |
-| Bad/duplicate Scout upload needs removing | Self-serve uploader is **add-only** (no per-record delete, no approval gate) | Re-upload that whole category with **Replace** ticked (wipes + re-adds **only the records on the platform you're uploading to**, as of the 2026-07-16 platform-scope fix — the other platform's records for that category are left alone), or `DELETE /api/screens` by `id` (get ids from `GET /api/screens`). Note: local `vercel dev` shares the live DB. |
+| Bad/duplicate Scout upload needs removing | Uploader is add-only, but since 2026-10-27 any event can be deleted from Scout (trash icon) and restored from the **Trash** tab | Click the trash icon on the event (restore from Trash tab if needed; **Delete forever** is permanent), or re-upload that whole category with **Replace** ticked (wipes + re-adds **only the records on the platform you're uploading to**, as of the 2026-07-16 platform-scope fix — the other platform's records for that category are left alone), or `DELETE /api/screens` by `id` (get ids from `GET /api/screens`). Note: local `vercel dev` shares the live DB. |
 | `/api/auth` returns `503 Auth not configured` | `DASHBOARD_PASSWORD` or `SESSION_SECRET` missing from env | Set both in `.env` (local) and Vercel Production env vars, then redeploy/restart |
 | Stuck redirecting to `/login` even with the right password | Session cookie not being set/read — check `SESSION_SECRET` matches between `api/lib/session.js` (Node) and `middleware.js` (Edge); check the cookie isn't blocked (`Secure` flag needs HTTPS — fine on Vercel, also fine on `localhost` per browser exception) | Confirm via `curl -c cookies.txt -X POST /api/auth -d '{"action":"login","password":"..."}'` then reuse `-b cookies.txt` on `/` |
 | Whole app unreachable after adding the login gate | `middleware.js` matcher is too broad, or `SESSION_SECRET` rotated without re-issuing sessions | Everyone with an old session cookie gets redirected to `/login` and just needs to sign in again — not a bug, expected after rotating the secret |

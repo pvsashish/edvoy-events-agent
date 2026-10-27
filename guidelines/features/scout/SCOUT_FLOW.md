@@ -1,6 +1,6 @@
 # Scout — Event Map
 
-**Last updated:** 2026-07-22 (event rows needed a double-tap on iOS — see hover-prefetch note below) · 2026-07-21 (canvas responsive fix — see "Auto-fit canvas" below) · 2026-07-16 (duplicate/replace checks + footer stat scoped by platform — see note in §A) · earlier: 2026-07-08 (self-serve in-product uploader added)
+**Last updated:** 2026-10-27 (Trash / soft delete — see "Trash" section at bottom; counts refreshed) · 2026-07-22 (event rows needed a double-tap on iOS — see hover-prefetch note below) · 2026-07-21 (canvas responsive fix — see "Auto-fit canvas" below) · 2026-07-16 (duplicate/replace checks + footer stat scoped by platform — see note in §A) · earlier: 2026-07-08 (self-serve in-product uploader added)
 
 ## What It Does
 Visual analytics dictionary. Search an event name or screen category → see the real screenshot with the highlighted UI element. Useful for onboarding, QA, and confirming which element fires which event.
@@ -46,7 +46,7 @@ edvoy_screens (
 
 **bbox:** `[x, y, width, height]` in raw pixels of the screenshot. Always `[0,0,0,0]` for manually captured screenshots (highlight is drawn into the image itself). Scout skips rendering the overlay when `bbox[2] === 0`.
 
-## Current Categories (241 records total: 104 GA4 + 137 Amplitude)
+## Current Categories (423 records total / 60 screens: 128 GA4 + 295 Amplitude — as of 2026-10-27; table below is the original GA4 set + notes, not exhaustive)
 The table below is the original **GA4** set (105 records / 24 screens). **Amplitude** screens and later GA4 additions (Profile, Shortlist) were added afterwards (see notes) and are not all itemised here.
 
 | screenName (GA4) | Records |
