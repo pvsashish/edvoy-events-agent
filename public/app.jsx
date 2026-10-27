@@ -255,6 +255,22 @@ function IconPlus({ size = 16, color = 'currentColor' }) {
   );
 }
 
+// Platform logo (same SVGs as the Scout rail) — module-level so any tab can use it.
+function PlatformLogo({ platform, size = 14 }) {
+  return platform === 'ga4' ? (
+    <svg width={size} height={size} viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+      <rect x="3.5" y="15" width="4" height="6" rx="1.6" fill="#F9AB00"/>
+      <rect x="10" y="10" width="4" height="11" rx="1.6" fill="#F9AB00"/>
+      <rect x="16.5" y="5" width="4" height="16" rx="1.6" fill="#F9AB00"/>
+    </svg>
+  ) : (
+    <svg width={size} height={size} viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+      <circle cx="12" cy="12" r="11" fill="#1F6CE2"/>
+      <path d="M6 16 C 8 16 8.5 8 10 8 C 11.5 8 12 16 14 16 C 16 16 16.5 11 18 11" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    </svg>
+  );
+}
+
 function IconTrash({ size = 15, color = 'currentColor' }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1154,6 +1170,86 @@ function App() {
   // treat the row as hover-reveal content, requiring a first tap just to show it and a
   // second to actually select it. Only wire up hover on devices that truly support it.
   const [scoutSupportsHover]                          = useState(() => typeof window !== 'undefined' && window.matchMedia?.('(hover: hover)').matches);
+  // Scout Trash (soft delete).
+  // Delete moves the event to Trash (row + R2 image kept); Restore brings it back; only
+  // "Delete forever" / "Empty trash" remove it for good.
+  const scoutCanDelete = true;
+  const [scoutTrash, setScoutTrash]         = useState([]);
+  const [scoutNote, setScoutNote]           = useState(null); // { msg, undo? }
+  const scoutNoteTimer = useRef(null);
+  const flashScoutNote = (msg, undo) => {
+    clearTimeout(scoutNoteTimer.current);
+    setScoutNote({ msg, undo });
+    scoutNoteTimer.current = setTimeout(() => setScoutNote(null), undo ? 7000 : 2500);
+  };
+  const loadScoutTrash = async () => {
+    try {
+      const data = await fetch('/api/screens?trash=1').then(r => r.json());
+      setScoutTrash((data.screens || []).map(s => ({ ...s, image: s.imageUrl || null })));
+    } catch (e) { /* trash is non-critical */ }
+  };
+  useEffect(() => { if (scoutCanDelete) loadScoutTrash(); }, []);
+  const scoutPost = (body, method = 'POST') =>
+    fetch('/api/screens', { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); });
+  const byNewest = (a, b) => new Date(b.createdAt) - new Date(a.createdAt);
+  // Optimistic: the UI updates instantly, the API call runs in the background, and the
+  // change is rolled back (with an alert) only if the server call fails.
+  const trashScoutEvent = (rec) => {
+    const wasSelected = scoutSelected?.id === rec.id;
+    setScoutAllResults(prev => prev.filter(r => r.id !== rec.id));
+    setScoutResults(prev => prev.filter(r => r.id !== rec.id));
+    setScoutTrash(prev => [{ ...rec, deletedAt: new Date().toISOString() }, ...prev.filter(r => r.id !== rec.id)]);
+    if (wasSelected) clearScoutSelection();
+    flashScoutNote('Moved to Trash', () => restoreScoutEvent(rec));
+    scoutPost({ action: 'trash', id: rec.id }).catch(err => {
+      setScoutAllResults(prev => [...prev, rec].sort(byNewest));
+      setScoutResults(prev => [...prev, rec].sort(byNewest));
+      setScoutTrash(prev => prev.filter(r => r.id !== rec.id));
+      alert('Delete failed: ' + err.message);
+    });
+  };
+  const restoreScoutEvent = (rec) => {
+    const { deletedAt, ...clean } = rec;
+    setScoutTrash(prev => prev.filter(r => r.id !== rec.id));
+    setScoutAllResults(prev => [...prev.filter(r => r.id !== rec.id), clean].sort(byNewest));
+    setScoutResults(prev => [...prev.filter(r => r.id !== rec.id), clean].sort(byNewest));
+    flashScoutNote('Restored to Scout');
+    scoutPost({ action: 'restore', id: rec.id }).catch(err => {
+      setScoutAllResults(prev => prev.filter(r => r.id !== rec.id));
+      setScoutResults(prev => prev.filter(r => r.id !== rec.id));
+      setScoutTrash(prev => [rec, ...prev]);
+      alert('Restore failed: ' + err.message);
+    });
+  };
+  // In-app confirm dialog (native window.confirm is silently blocked in some embedded browsers).
+  const [scoutConfirm, setScoutConfirm] = useState(null); // { title, body, label, onConfirm }
+  const purgeScoutEvent = (rec) => {
+    setScoutConfirm({
+      title: 'Delete forever?',
+      body: `"${rec.events?.[0]?.event_name || rec.screenName}" and its screenshot will be permanently removed. This cannot be undone.`,
+      label: 'Delete forever',
+      onConfirm: () => {
+        setScoutTrash(prev => prev.filter(r => r.id !== rec.id));
+        flashScoutNote('Deleted forever');
+        scoutPost({ id: rec.id }, 'DELETE').catch(err => { setScoutTrash(prev => [rec, ...prev]); alert('Delete failed: ' + err.message); });
+      },
+    });
+  };
+  const emptyScoutTrash = () => {
+    const n = scoutTrash.filter(r => (r.space || 'edvoy-student') === space).length;
+    setScoutConfirm({
+      title: 'Empty Trash?',
+      body: `All ${n} deleted event${n === 1 ? '' : 's'} in this Space and their screenshots will be permanently removed. This cannot be undone.`,
+      label: 'Empty trash',
+      onConfirm: () => {
+        const prevTrash = scoutTrash;
+        setScoutTrash(prev => prev.filter(r => (r.space || 'edvoy-student') !== space));
+        flashScoutNote('Trash emptied');
+        scoutPost({ emptyTrash: true, space }, 'DELETE').catch(err => { setScoutTrash(prevTrash); alert('Empty trash failed: ' + err.message); });
+      },
+    });
+  };
   // Scout self-serve upload (folder of PNGs → screens, filename = event_name) — modal
   const [scoutUploadOpen, setScoutUploadOpen]         = useState(false);
 
@@ -2114,6 +2210,26 @@ function App() {
             <IconScout color={activeTab === 'scout' ? T.purple700 : T.t500} />
             Scout
           </button>
+          {scoutCanDelete && (() => {
+            const n = scoutTrash.filter(r => (r.space || 'edvoy-student') === space).length;
+            return (
+              <button
+                onClick={() => { setActiveTab('trash'); setMobileSidebarOpen(false); }}
+                className={`sidebar-nav-btn ${activeTab === 'trash' ? 'active' : ''}`}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  width: '100%', padding: '10px 14px', border: 'none', borderRadius: 8,
+                  background: activeTab === 'trash' ? T.purple50 : 'transparent',
+                  color: activeTab === 'trash' ? T.purple700 : T.t700,
+                  fontSize: 13, fontWeight: activeTab === 'trash' ? 600 : 500,
+                  cursor: 'pointer', textAlign: 'left',
+                }}
+              >
+                <IconTrash size={18} color={activeTab === 'trash' ? T.purple700 : T.t500} />
+                Trash{n > 0 ? ` (${n})` : ''}
+              </button>
+            );
+          })()}
         </nav>
 
         {/* Cumulative API usage / cost card (Anthropic Sonnet 4.6, persisted across sessions) */}
@@ -2382,6 +2498,7 @@ function App() {
               {activeTab === 'history' && 'Event Specification History'}
               {activeTab === 'guidelines' && 'Batch Naming Converter'}
               {activeTab === 'scout' && 'Scout — Event Map'}
+              {activeTab === 'trash' && 'Trash — Deleted Scout Events'}
             </h2>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -3670,6 +3787,15 @@ function App() {
                                         onMouseEnter={e => { e.currentTarget.style.background='#F5F0FF'; e.currentTarget.style.color='#7C3AED'; }}
                                         onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='#6B7280'; }}
                                       ><CopyIcon size={13} /></button>
+                                      {scoutCanDelete && (
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); trashScoutEvent(s); }}
+                                          title="Move to Trash"
+                                          style={{ opacity: isActive || isHovered ? 1 : 0, transition: 'opacity .15s, background .12s, color .12s', width: 24, height: 24, border: 'none', background: 'transparent', borderRadius: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#6B7280', cursor: 'pointer', flexShrink: 0 }}
+                                          onMouseEnter={e => { e.currentTarget.style.background='#FEF2F2'; e.currentTarget.style.color='#DC2626'; }}
+                                          onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='#6B7280'; }}
+                                        ><IconTrash size={13} /></button>
+                                      )}
                                     </div>
                                   );
                                 })}
@@ -3737,6 +3863,34 @@ function App() {
             );
           })()}
 
+            {activeTab === 'trash' && scoutCanDelete && (() => {
+              const trashHere = scoutTrash.filter(r => (r.space || 'edvoy-student') === space);
+              return (
+                <section style={{ ...cardStyle, padding: 0, overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px', borderBottom: '1px solid #ECECF0' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#22232A' }}>Deleted events</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6B7280', background: '#F6F5F9', padding: '2px 8px', borderRadius: 5, fontWeight: 600 }}>{trashHere.length}</span>
+                    <span style={{ flex: 1 }} />
+                    {trashHere.length > 0 && (
+                      <button onClick={emptyScoutTrash} style={{ fontSize: 12, fontWeight: 600, color: '#DC2626', background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px 8px' }}>Empty trash</button>
+                    )}
+                  </div>
+                  {trashHere.length === 0 && <div style={{ padding: '36px 20px', textAlign: 'center', fontSize: 13, color: '#6B7280' }}>Trash is empty. Events you delete in Scout land here and can be restored.</div>}
+                  {trashHere.map(r => (
+                    <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px', borderBottom: '1px solid #F4F4F7', flexWrap: 'wrap' }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, color: '#22232A', flex: 1, minWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.events?.[0]?.event_name || r.screenName}</span>
+                      <span style={{ fontSize: 11, color: '#6B7280', whiteSpace: 'nowrap' }}>{r.screenName}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#22232A', whiteSpace: 'nowrap' }}>
+                          <PlatformLogo platform={r.platform} size={14} />{r.platform === 'ga4' ? 'GA4' : 'AMP'}
+                        </span>
+                      <button onClick={() => restoreScoutEvent(r)} style={{ fontSize: 12, fontWeight: 700, color: '#6D28D9', background: '#F5F0FF', border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}>Restore</button>
+                      <button onClick={() => purgeScoutEvent(r)} style={{ fontSize: 12, fontWeight: 600, color: '#DC2626', background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px 6px' }}>Delete forever</button>
+                    </div>
+                  ))}
+                </section>
+              );
+            })()}
+
         </div>
       </main>
 
@@ -3747,6 +3901,28 @@ function App() {
           onIndexChange={(i) => setPreview(p => ({ ...p, index: i }))}
           onClose={() => setPreview(null)}
         />
+      )}
+
+      {scoutConfirm && (
+        <div onClick={() => setScoutConfirm(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,15,20,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, padding: '22px 22px 18px', width: 'min(400px, 100%)', boxShadow: '0 20px 50px rgba(0,0,0,.25)' }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: '#0F0F14', marginBottom: 8 }}>{scoutConfirm.title}</div>
+            <div style={{ fontSize: 13, color: '#4B5563', lineHeight: 1.5, marginBottom: 18, wordBreak: 'break-word' }}>{scoutConfirm.body}</div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button autoFocus onClick={() => setScoutConfirm(null)} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #E4E4EA', background: '#fff', color: '#22232A', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={() => { const c = scoutConfirm.onConfirm; setScoutConfirm(null); c(); }} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#DC2626', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>{scoutConfirm.label}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {scoutNote && (
+        <div style={{ position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)', background: '#0F0F14', color: '#fff', fontSize: 12.5, fontWeight: 600, padding: '10px 14px 10px 18px', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.18)', zIndex: 9999, display: 'flex', alignItems: 'center', gap: 14 }}>
+          <span>{scoutNote.msg}</span>
+          {scoutNote.undo && (
+            <button onClick={() => { const u = scoutNote.undo; setScoutNote(null); u(); }} style={{ background: 'transparent', border: 'none', color: '#C4B5FD', fontWeight: 800, fontSize: 12.5, cursor: 'pointer', padding: 0 }}>Undo</button>
+          )}
+        </div>
       )}
 
       {scoutUploadOpen && (

@@ -39,7 +39,7 @@ export default async function handler(req, res) {
       if (id) {
         const dbRes = await queryWithRetry(
           `SELECT id, screen_name AS "screenName", platform, space, image_url AS "imageUrl", events, created_at AS "createdAt"
-           FROM edvoy_screens WHERE id = $1`,
+           FROM edvoy_screens WHERE id = $1 AND deleted_at IS NULL`,
           [id]
         );
         if (!dbRes.rows.length) return res.status(404).json({ error: 'Not found' });
@@ -51,25 +51,46 @@ export default async function handler(req, res) {
         const dbRes = await queryWithRetry(
           `SELECT id, screen_name AS "screenName", platform, space, image_url AS "imageUrl", events, created_at AS "createdAt"
            FROM edvoy_screens
-           WHERE screen_name ILIKE $1
+           WHERE deleted_at IS NULL AND (screen_name ILIKE $1
               OR EXISTS (
                 SELECT 1 FROM jsonb_array_elements(events) ev
                 WHERE ev->>'event_name' ILIKE $1
-              )
+              ))
            ORDER BY created_at DESC`,
           [`%${q}%`]
         );
         return res.status(200).json({ screens: dbRes.rows });
       }
 
+      // Trash view: soft-deleted rows, most recently trashed first
+      if (req.query.trash) {
+        const dbRes = await queryWithRetry(
+          `SELECT id, screen_name AS "screenName", platform, space, image_url AS "imageUrl", events, created_at AS "createdAt", deleted_at AS "deletedAt"
+           FROM edvoy_screens WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC`
+        );
+        return res.status(200).json({ screens: dbRes.rows });
+      }
+
       const dbRes = await queryWithRetry(
         `SELECT id, screen_name AS "screenName", platform, space, image_url AS "imageUrl", events, created_at AS "createdAt"
-         FROM edvoy_screens ORDER BY created_at DESC`
+         FROM edvoy_screens WHERE deleted_at IS NULL ORDER BY created_at DESC`
       );
       return res.status(200).json({ screens: dbRes.rows });
     }
 
     if (req.method === 'POST') {
+      // Soft delete / restore — row + R2 image are kept, only deleted_at flips.
+      const { action } = req.body || {};
+      if (action === 'trash' || action === 'restore') {
+        if (!req.body.id) return res.status(400).json({ error: 'Missing id' });
+        const upd = await queryWithRetry(
+          `UPDATE edvoy_screens SET deleted_at = ${action === 'trash' ? 'CURRENT_TIMESTAMP' : 'NULL'} WHERE id = $1`,
+          [req.body.id]
+        );
+        if (!upd.rowCount) return res.status(404).json({ error: 'Not found' });
+        return res.status(200).json({ success: true });
+      }
+
       const { id, screenName, platform, image, events, space } = req.body;
 
       if (!screenName || !platform || !image || !Array.isArray(events)) {
@@ -92,7 +113,17 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'DELETE') {
-      const { id, clearAll, space } = req.body || {};
+      const { id, clearAll, space, emptyTrash } = req.body || {};
+
+      // Empty trash: permanently remove every soft-deleted row (+ R2 images), optionally one space only.
+      if (emptyTrash) {
+        const gone = await queryWithRetry(
+          `DELETE FROM edvoy_screens WHERE deleted_at IS NOT NULL ${space ? 'AND space = $1' : ''} RETURNING image_url`,
+          space ? [space] : []
+        );
+        for (const r of gone.rows) if (r.image_url) await deleteByUrl(r.image_url);
+        return res.status(200).json({ success: true, removed: gone.rowCount });
+      }
 
       if (clearAll) {
         if (space) {

@@ -39,7 +39,8 @@ edvoy_screens (
   platform    VARCHAR NOT NULL,   -- 'ga4' | 'amplitude'
   image       TEXT NOT NULL,      -- base64 data URL (png)
   events      JSONB NOT NULL,     -- [{ event_name, label, bbox: [x,y,w,h] }]
-  created_at  TIMESTAMP
+  created_at  TIMESTAMP,
+  deleted_at  TIMESTAMP           -- NULL = live; set = in Trash (2026-10-27)
 )
 ```
 
@@ -88,11 +89,13 @@ The table below is the original **GA4** set (105 records / 24 screens). **Amplit
 ## API
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/screens` | List all (no image field — fast) |
+| GET | `/api/screens` | List all non-trashed (no image field — fast) |
+| GET | `/api/screens?trash=1` | List trashed (soft-deleted) records, newest-trashed first |
 | GET | `/api/screens?q=foo` | Search by screen_name OR event_name (ILIKE) |
 | GET | `/api/screens?id=<id>` | Fetch single record with image |
 | POST | `/api/screens` | Create: `{ screenName, platform, image, events }` |
-| DELETE | `/api/screens` | `{ id }` for one, `{ clearAll: true }` for all |
+| POST | `/api/screens` | Soft delete / restore: `{ action: 'trash' \| 'restore', id }` (sets/clears `deleted_at`; row + R2 image kept) |
+| DELETE | `/api/screens` | PERMANENT: `{ id }` for one, `{ emptyTrash: true, space }` for all trashed, `{ clearAll: true }` for all |
 
 ## Frontend (app.jsx)
 State: `scoutQuery`, `scoutResults`, `scoutAllResults`, `scoutSelected`, `scoutActiveEvent`, `scoutImgDims`, `scoutImgLoading`, `scoutSearched`, `scoutLoading`, `scoutLastSearchQuery`, `scoutDisplayedImage`, `scoutPlatformFilter`, `scoutPage`, `scoutToast`, `scoutHoveredId`, `scoutSupportsHover`
@@ -157,3 +160,6 @@ Images used to be base64 TEXT in Postgres, which burned through Neon's free tran
 - Neon holds only metadata: `id`, `screen_name`, `platform`, `events`, `image_url` (the old base64 `image` column was dropped, ~140MB reclaimed)
 - `api/r2.js` — reusable S3-compatible upload/delete helper
 - R2 env vars are set on Vercel (Production) — ingestion (POST) works live
+
+## Trash (2026-10-27)
+Per-event delete in Scout is a **soft delete**: the trash icon (next to Copy) sets `deleted_at`, the event leaves Scout and appears in the sidebar **Trash** tab (count badge, Space-scoped). Row + R2 screenshot are kept, so **Restore** brings it back exactly. **Delete forever** / **Empty trash** are permanent (row + R2 image) and always ask via an in-app confirm dialog (native `window.confirm` is blocked in some embedded browsers). UI is optimistic (instant) with rollback on API failure; deleting shows a toast with **Undo**. Code: `trashScoutEvent`/`restoreScoutEvent`/`purgeScoutEvent`/`emptyScoutTrash` + `PlatformLogo` in `public/app.jsx`; `api/screens.js`, `api/db.js`. Uploader's Replace still hard-deletes. Auto-purge not built.

@@ -49,6 +49,7 @@ export const initDb = () => {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     ALTER TABLE edvoy_screens ADD COLUMN IF NOT EXISTS space VARCHAR(50) NOT NULL DEFAULT 'edvoy-student';
+    ALTER TABLE edvoy_screens ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;
     CREATE TABLE IF NOT EXISTS edvoy_usage (
       id INT PRIMARY KEY DEFAULT 1,
       input_tokens BIGINT NOT NULL DEFAULT 0,
