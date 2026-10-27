@@ -32,7 +32,7 @@ const T = {
 const GA4_CATEGORIES = [
   'App',
   'Applications',
-  'Articles',
+  'Search Articles',
   'Career',
   'City Page',
   'Compare',
@@ -112,7 +112,7 @@ const CAT_COLOR = {
   'Genie Chatbot': { bg: '#FFF7ED', fg: '#C2410C', dot: '#F97316' },
   'Meet': { bg: '#F0F9FF', fg: '#0369A1', dot: '#0EA5E9' },
   'Course Page': { bg: '#F5F3FF', fg: '#6D28D9', dot: '#7C3AED' },
-  'Articles':   { bg: '#FFFBEB', fg: '#B45309', dot: '#F59E0B' },
+  'Search Articles': { bg: '#FFFBEB', fg: '#B45309', dot: '#F59E0B' },
   'Compare':    { bg: '#F0FDFA', fg: '#0F766E', dot: '#14B8A6' },
   'Compare page': { bg: '#F0FDFA', fg: '#0F766E', dot: '#14B8A6' },
   'LP3 and LP4': { bg: '#FFF1F2', fg: '#BE123C', dot: '#F43F5E' },

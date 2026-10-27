@@ -51,7 +51,7 @@ The table below is the original **GA4** set (105 records / 24 screens). **Amplit
 | screenName (GA4) | Records |
 |---|---|
 | App | 2 |
-| Articles | 3 |
+| Search Articles | 3 |
 | Career | 1 |
 | City Page | 6 |
 | Compare | 1 |
