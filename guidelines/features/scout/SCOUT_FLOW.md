@@ -45,7 +45,7 @@ edvoy_screens (
 
 **bbox:** `[x, y, width, height]` in raw pixels of the screenshot. Always `[0,0,0,0]` for manually captured screenshots (highlight is drawn into the image itself). Scout skips rendering the overlay when `bbox[2] === 0`.
 
-## Current Categories (242 records total: 105 GA4 + 137 Amplitude)
+## Current Categories (241 records total: 104 GA4 + 137 Amplitude)
 The table below is the original **GA4** set (105 records / 24 screens). **Amplitude** screens and later GA4 additions (Profile, Shortlist) were added afterwards (see notes) and are not all itemised here.
 
 | screenName (GA4) | Records |
@@ -54,7 +54,6 @@ The table below is the original **GA4** set (105 records / 24 screens). **Amplit
 | Search Articles | 3 |
 | Career | 1 |
 | City Page | 6 |
-| Compare | 1 |
 | Compare page | 1 |
 | Contact | 7 |
 | Country Page | 7 |
