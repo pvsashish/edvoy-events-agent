@@ -40,7 +40,10 @@ Key files:
 
 No open blockers. DB lives in its own dedicated Neon project (`edvoy-events-agent`, not shared with any other tool). Scout images are on Cloudflare R2, not Neon — the old base64-in-Postgres transfer problem is permanently gone. The whole app sits behind a shared-password login gate (2026-07-16). Scout's canvas + the whole app's responsive layout was overhauled 2026-07-21, and a follow-up iOS-only interaction bug in the same area was fixed 2026-07-22 — both were real-device-only bugs invisible to desktop testing and to a Chromium-based simulated browser. The sidebar API Usage card's cumulative cost/token figures were corrected and simplified 2026-07-23 (see below).
 
-### Recent (2026-10-27, latest) — Scout Trash: soft delete, Trash tab, restore, Undo (shipped + live)
+### Recent (2026-10-28, latest) — Scout: selecting an event on page 2 no longer jumps to page 1 (shipped + live)
+User reported live Scout bouncing back to page 1 whenever an event on page 2 was checked. **Cause:** selecting an event lazy-loads its image and writes it into `scoutResults`; a `useEffect([scoutResults])` reset `scoutPage` to 1 on every array change. **Fix** (`public/app.jsx`): effect now keys on `scoutResultsKey` (joined result ids), so only a real change of the result set (search/platform filter) resets; Trash/Restore set a `scoutKeepPage` ref so deleting from page 2 stays put. Cache-bust `app.jsx?v=33`. **Not browser-tested** (localhost needed the login the pane couldn't pass) — pushed on the user's instruction; worth a quick live check. Commit `6e6e524`.
+
+### Recent (2026-10-27) — Scout Trash: soft delete, Trash tab, restore, Undo (shipped + live)
 User asked for a way to delete a Scout event (next to Copy) that is reversible. Built as a **soft delete**, QA'd on localhost first, approved, then shipped.
 - **Trash icon** next to the Copy icon on every Scout event row. One click → event leaves Scout instantly, toast shows **Undo** (7s). No confirm step (it's reversible).
 - **Sidebar "Trash (N)" tab** (below Scout, Space-scoped count) → page listing deleted events with the real platform icon + name (GA4 / AMP), **Restore**, **Delete forever**, **Empty trash**. The two permanent actions open an **in-app confirm dialog** (native `window.confirm` is silently blocked in the embedded browser — first attempt used it and the user saw nothing).
