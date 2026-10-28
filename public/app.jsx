@@ -1196,6 +1196,7 @@ function App() {
   // Optimistic: the UI updates instantly, the API call runs in the background, and the
   // change is rolled back (with an alert) only if the server call fails.
   const trashScoutEvent = (rec) => {
+    scoutKeepPage.current = true;
     const wasSelected = scoutSelected?.id === rec.id;
     setScoutAllResults(prev => prev.filter(r => r.id !== rec.id));
     setScoutResults(prev => prev.filter(r => r.id !== rec.id));
@@ -1210,6 +1211,7 @@ function App() {
     });
   };
   const restoreScoutEvent = (rec) => {
+    scoutKeepPage.current = true;
     const { deletedAt, ...clean } = rec;
     setScoutTrash(prev => prev.filter(r => r.id !== rec.id));
     setScoutAllResults(prev => [...prev.filter(r => r.id !== rec.id), clean].sort(byNewest));
@@ -1344,7 +1346,13 @@ function App() {
 
   // Reset to page 1 when filter or search results change
   useEffect(() => { setScoutPage(1); }, [scoutPlatformFilter]);
-  useEffect(() => { setScoutPage(1); }, [scoutResults]);
+  // Keyed on the result set's ids (not the array) so lazy image loads, trash and restore don't kick you back to page 1
+  const scoutResultsKey = scoutResults.map(r => r.id).join(',');
+  const scoutKeepPage = useRef(false);
+  useEffect(() => {
+    if (scoutKeepPage.current) { scoutKeepPage.current = false; return; }
+    setScoutPage(1);
+  }, [scoutResultsKey]);
 
   const scoutImgRef = useRef(null);
 
