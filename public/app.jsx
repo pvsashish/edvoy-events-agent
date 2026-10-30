@@ -828,8 +828,18 @@ function ScoutUploadModal({ space, spaceLabel, records, onClose, onUploaded }) {
   const deriveEvent = n => n.replace(/\.[^.]+$/, '');
   const busy = phase === 'uploading';
 
+  // Every way of closing the modal (X, Esc, Cancel, backdrop, Done) goes through finish(), so the
+  // Scout list always refreshes after a successful upload - not only when "Done" is clicked.
+  const pending = React.useRef({ ok: 0, fail: 0 });
+  const finish = () => {
+    const { ok, fail } = pending.current;
+    pending.current = { ok: 0, fail: 0 };
+    if (ok || fail) onUploaded(ok, fail);
+    onClose();
+  };
+
   React.useEffect(() => {
-    const h = e => { if (e.key === 'Escape' && !busy) onClose(); };
+    const h = e => { if (e.key === 'Escape' && !busy) finish(); };
     document.addEventListener('keydown', h);
     return () => document.removeEventListener('keydown', h);
   }, [busy, onClose]);
@@ -937,6 +947,7 @@ function ScoutUploadModal({ space, spaceLabel, records, onClose, onUploaded }) {
       }
       setProgress({ done: i + 1, total: uploadable.length });
     }
+    pending.current = { ok: pending.current.ok + ok, fail: pending.current.fail + fail.length };
     setResult({ ok, fail });
     setPhase('done');
   };
@@ -950,7 +961,7 @@ function ScoutUploadModal({ space, spaceLabel, records, onClose, onUploaded }) {
   });
 
   return (
-    <div onClick={() => !busy && onClose()} style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(20,14,40,0.55)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+    <div onClick={() => !busy && finish()} style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(20,14,40,0.55)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div onClick={e => e.stopPropagation()} className="fade-in" style={{ width: 'min(580px, 96vw)', maxHeight: '90vh', display: 'flex', flexDirection: 'column', background: '#fff', borderRadius: 20, boxShadow: '0 40px 80px -20px rgba(30,15,60,.45)', overflow: 'hidden', fontFamily: 'var(--font-body)' }}>
 
         {/* Header */}
@@ -962,7 +973,7 @@ function ScoutUploadModal({ space, spaceLabel, records, onClose, onUploaded }) {
             </div>
           </div>
           {!busy && (
-            <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${T.border}`, background: '#fff', color: T.t500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <button onClick={finish} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${T.border}`, background: '#fff', color: T.t500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6 L18 18 M18 6 L6 18"/></svg>
             </button>
           )}
@@ -1118,12 +1129,12 @@ function ScoutUploadModal({ space, spaceLabel, records, onClose, onUploaded }) {
             <>
               <button onClick={() => { setFiles([]); setReplace(false); setPhase('pick'); }}
                 style={{ padding: '10px 16px', borderRadius: 8, border: `1px solid ${T.border}`, background: '#fff', color: T.t700, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Upload more</button>
-              <button onClick={() => { onUploaded(result.ok, result.fail.length); onClose(); }}
+              <button onClick={finish}
                 style={{ padding: '10px 22px', borderRadius: 8, border: 'none', background: T.grad || '#7C3AED', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Done</button>
             </>
           ) : (
             <>
-              {!busy && <button onClick={onClose} style={{ padding: '10px 16px', borderRadius: 8, border: `1px solid ${T.border}`, background: '#fff', color: T.t500, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>}
+              {!busy && <button onClick={finish} style={{ padding: '10px 16px', borderRadius: 8, border: `1px solid ${T.border}`, background: '#fff', color: T.t500, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>}
               <button onClick={doUpload} disabled={!canUpload}
                 style={{ padding: '10px 22px', borderRadius: 8, border: 'none', background: canUpload ? (T.grad || '#7C3AED') : '#E5E7EB', color: canUpload ? '#fff' : T.t500, fontSize: 13, fontWeight: 700, cursor: canUpload ? 'pointer' : 'not-allowed' }}>
                 {busy ? 'Uploading…' : `Upload ${uploadable.length || ''}`.trim()}
@@ -1352,7 +1363,7 @@ function App() {
   // off) and by the explicit "clear selection" (X) button. Clears the canvas too.
   const reloadScoutList = async () => {
     const data = await fetch('/api/screens').then(r => r.json());
-    const results = data.screens || [];
+    const results = (data.screens || []).map(s => ({ ...s, image: s.imageUrl || s.image || null }));
     setScoutAllResults(results);
     setScoutResults(results);
   };
