@@ -40,7 +40,10 @@ Key files:
 
 No open blockers. DB lives in its own dedicated Neon project (`edvoy-events-agent`, not shared with any other tool). Scout images are on Cloudflare R2, not Neon — the old base64-in-Postgres transfer problem is permanently gone. The whole app sits behind a shared-password login gate (2026-07-16). Scout's canvas + the whole app's responsive layout was overhauled 2026-07-21, and a follow-up iOS-only interaction bug in the same area was fixed 2026-07-22 — both were real-device-only bugs invisible to desktop testing and to a Chromium-based simulated browser. The sidebar API Usage card's cumulative cost/token figures were corrected and simplified 2026-07-23 (see below).
 
-### Recent (2026-10-30, latest) — Scout uploader: no default platform (shipped + live)
+### Recent (2026-10-30, latest) — Scout: 5 GA4 events moved Referral -> Refer and Earn (data change, live)
+User uploaded 5 GA4 events into `Referral` that belonged in `Refer and Earn`. Moved by id with a direct SQL `UPDATE` (no rename API exists); GA4 `Referral` now 9, GA4 `Refer and Earn` 5; Amplitude `Refer and Earn` unchanged (14). Shared DB, so live instantly. Live counts refreshed in docs: 665 / 68. Trash currently holds 10 of the user's items.
+
+### Recent (2026-10-30) — Scout uploader: no default platform (shipped + live)
 The upload window pre-selected **Amplitude**, so a GA4 batch could be saved as Amplitude by mistake. Now `platform` state starts `''`: neither button is selected, a "pick one to continue" hint shows, and Upload stays disabled until GA4 or Amplitude is chosen (`public/app.jsx`, `app.jsx?v=37`). Verified on localhost (no upload made). Selection persists only while the window is open.
 
 ### Recent (2026-10-30) — Scout uploader: list refreshes however the window closes (shipped + live)
@@ -61,7 +64,7 @@ User asked for a way to delete a Scout event (next to Copy) that is reversible. 
 - **Bugs caught in QA:** (1) Trash panel crashed the whole page — `GA4Logo`/`AMPLogo` are local to the Scout card IIFE, so reused a new module-level `PlatformLogo`; (2) trash page was nested inside the Scout tab block so never rendered on its own tab.
 - **QA:** used the user's `chatbot_icon_clicked` GA4 event (restored afterwards, DB identical). Delete-forever / Empty-trash dialogs verified via Cancel only; the confirmed permanent delete itself was not exercised on real data.
 - **Also this session:** renamed Scout GA4 category `Articles` → `Search Articles` (code + 3 DB records; commit `a8c0ad4`); deleted GA4 `Compare` category (1 record, **unrecoverable** — R2 image deleted; user chose not to restore); that incident is why Trash exists. Shipped: commit `8467f0c` on `main`.
-- **Live Scout data is now 423 events / 60 screens (128 GA4 + 295 Amplitude)** — the 242/47 figures elsewhere in older entries are historical.
+- **Live Scout data is now 665 events / 68 screens (369 GA4 + 296 Amplitude), as of 2026-10-30** (was 423 / 60 on 2026-10-27) — the 242/47 figures elsewhere in older entries are historical.
 
 ### Recent (2026-07-23) — API Usage card: corrected cumulative cost/tokens + dropped the ratio bar (data fix + shipped + live)
 User flagged the sidebar's cumulative `$0.9175` figure as wrong — their real tracked spend was `$0.88`. Traced it to the `edvoy_usage` DB row's origin: it was seeded 2026-07-07 from a **known estimate** (29 generations / ~118k tokens / $0.60, explicitly logged then as "estimates — only the cost was known"), and every real per-generate delta added since inherited that estimate's error.
@@ -110,7 +113,7 @@ The `exists`/`dup` badge check and the **Replace** delete in `ScoutUploadModal` 
 PMs can now add Scout screens themselves — no more "ask Claude to ingest". **Scout → "Upload screens"** (primary button, top-right of the Scout header) opens `ScoutUploadModal` (`public/app.jsx`): drag-drop a **folder or single files**, pick Category (datalist + folder-name auto-fill) + Platform (GA4/AMP logo toggle), **review each derived `event_name` before commit** (badges: `dup` in-batch, `exists` already-in-category, `no name` empty → skipped), optional **Replace** (deletes the category's existing records first, aborts on any delete-failure so it never silently duplicates), progress bar + result screen. Loops the existing `POST /api/screens`; uploads to the active Space. New categories need **no code change** (`CategoryBadge` greys unknowns). Add-only — no per-record delete, no approval gate (writes straight to live for that Space). Doc: `guidelines/features/scout/SCOUT_FLOW.md` (section A).
 
 ### Recent (2026-07-07)
-- **Scout (as of 2026-07-07): 242 events / 47 screens** (105 GA4 + 137 Amplitude) — live is now 423 / 60 (see 2026-10-27), all `edvoy-student`. Latest ingests: Genie Banner Logged Out, Profile, Shortlist, Country Story, Course Card, Institution Card, Trending Subjects, Refer and Earn.
+- **Scout (as of 2026-07-07): 242 events / 47 screens** (105 GA4 + 137 Amplitude) — live is now 665 / 68 (see 2026-10-30), all `edvoy-student`. Latest ingests: Genie Banner Logged Out, Profile, Shortlist, Country Story, Course Card, Institution Card, Trending Subjects, Refer and Earn.
 - **Scout canvas images**: hover-prefetch (warms a row's screenshot on hover) + branded loading animation (shimmer + purple gradient ring + "Loading Screenshot") while a not-yet-cached R2 image downloads. Hover handlers are only attached on devices that report real hover support (`matchMedia('(hover: hover)')`, 2026-07-22) — touchscreens skip them entirely, avoiding an iOS Safari double-tap quirk (see Current State above).
 - **Scout search** normalized + word-order-independent (strips spaces/hyphens/underscores; every query word must appear in the screen or a single event name). **Clear** button next to Search resets query + results + canvas.
 - **Scout selection:** click an event to select, click again to deselect (toggle); "No event selected" empty state. **Pagination** is dense-pack + orphan-safe (~10/page, never strands <3 of a category).
@@ -144,7 +147,7 @@ DB moved out of the shared `reddit-tool-staging` Neon project into its own (`edv
 
 ### What's built and working
 - **Scout workspace**: unified card (header + canvas + event rail + footer), in-memory search, platform toggle (GA4/AMP), screen grouping, 10-per-page pagination, copy-to-clipboard per row, auto-fit canvas, form-factor chip. Images served from R2 CDN.
-- **Scout data**: 423 events across 60 screens (128 GA4 + 295 Amplitude) as of 2026-10-27; Trash (soft delete + restore) built in
+- **Scout data**: 665 events across 68 screens (369 GA4 + 296 Amplitude) as of 2026-10-30; Trash (soft delete + restore) built in
 - **Event Generator**: Space switcher (Student/Connect) + Specs History + Naming Converter + Tracking Sheet sync — all working
 
 ---
@@ -160,7 +163,7 @@ DB moved out of the shared `reddit-tool-staging` Neon project into its own (`edv
 
 **screenName must exactly match a `CAT_COLOR` key in `public/app.jsx` (~line 86).** Adding a new category = add it to CAT_COLOR first.
 
-**Current (2026-10-27): 60 screens, 423 records (128 GA4 + 295 Amplitude), all `edvoy-student`.** Full per-category breakdown + change log in `guidelines/features/scout/SCOUT_FLOW.md` (source of truth for counts).
+**Current (2026-10-30): 68 screens, 665 records (369 GA4 + 296 Amplitude), all `edvoy-student`.** Full per-category breakdown + change log in `guidelines/features/scout/SCOUT_FLOW.md` (source of truth for counts).
 
 **Country Page has 7 records** (1 duplicate `explore_universities_clicked` from a retry) — intentionally kept, clean up later.
 

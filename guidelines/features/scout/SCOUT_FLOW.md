@@ -1,6 +1,6 @@
 # Scout — Event Map
 
-**Last updated:** 2026-10-30 (uploader has no default platform - GA4/Amplitude must be picked) · 2026-10-30 (uploader refreshes the Scout list however its window is closed) · 2026-10-30 (uploader shrinks oversized images + shows per-file failure reasons) · 2026-10-28 (Scout pagination no longer resets to page 1 when selecting an event on page 2+) · 2026-10-27 (Trash / soft delete — see "Trash" section at bottom; counts refreshed) · 2026-07-22 (event rows needed a double-tap on iOS — see hover-prefetch note below) · 2026-07-21 (canvas responsive fix — see "Auto-fit canvas" below) · 2026-07-16 (duplicate/replace checks + footer stat scoped by platform — see note in §A) · earlier: 2026-07-08 (self-serve in-product uploader added)
+**Last updated:** 2026-10-30 (GA4 events chatbot/referral moved Referral -> Refer and Earn; live counts refreshed to 665/68) · 2026-10-30 (uploader has no default platform - GA4/Amplitude must be picked) · 2026-10-30 (uploader refreshes the Scout list however its window is closed) · 2026-10-30 (uploader shrinks oversized images + shows per-file failure reasons) · 2026-10-28 (Scout pagination no longer resets to page 1 when selecting an event on page 2+) · 2026-10-27 (Trash / soft delete — see "Trash" section at bottom; counts refreshed) · 2026-07-22 (event rows needed a double-tap on iOS — see hover-prefetch note below) · 2026-07-21 (canvas responsive fix — see "Auto-fit canvas" below) · 2026-07-16 (duplicate/replace checks + footer stat scoped by platform — see note in §A) · earlier: 2026-07-08 (self-serve in-product uploader added)
 
 ## What It Does
 Visual analytics dictionary. Search an event name or screen category → see the real screenshot with the highlighted UI element. Useful for onboarding, QA, and confirming which element fires which event.
@@ -46,7 +46,7 @@ edvoy_screens (
 
 **bbox:** `[x, y, width, height]` in raw pixels of the screenshot. Always `[0,0,0,0]` for manually captured screenshots (highlight is drawn into the image itself). Scout skips rendering the overlay when `bbox[2] === 0`.
 
-## Current Categories (423 records total / 60 screens: 128 GA4 + 295 Amplitude — as of 2026-10-27; table below is the original GA4 set + notes, not exhaustive)
+## Current Categories (665 records total / 68 screens: 369 GA4 + 296 Amplitude — as of 2026-10-30; table below is the original GA4 set + notes, not exhaustive)
 The table below is the original **GA4** set (105 records / 24 screens). **Amplitude** screens and later GA4 additions (Profile, Shortlist) were added afterwards (see notes) and are not all itemised here.
 
 | screenName (GA4) | Records |
@@ -163,3 +163,6 @@ Images used to be base64 TEXT in Postgres, which burned through Neon's free tran
 
 ## Trash (2026-10-27)
 Per-event delete in Scout is a **soft delete**: the trash icon (next to Copy) sets `deleted_at`, the event leaves Scout and appears in the sidebar **Trash** tab (count badge, Space-scoped). Row + R2 screenshot are kept, so **Restore** brings it back exactly. **Delete forever** / **Empty trash** are permanent (row + R2 image) and always ask via an in-app confirm dialog (native `window.confirm` is blocked in some embedded browsers). UI is optimistic (instant) with rollback on API failure; deleting shows a toast with **Undo**. Code: `trashScoutEvent`/`restoreScoutEvent`/`purgeScoutEvent`/`emptyScoutTrash` + `PlatformLogo` in `public/app.jsx`; `api/screens.js`, `api/db.js`. Uploader's Replace still hard-deletes. Auto-purge not built.
+
+### Category move (2026-10-30)
+Five GA4 records were moved from `Referral` to `Refer and Earn` (`refer_and_earn_tab_clicked`, `copy_referral_link_button_clicked`, `invite_now_button_clicked`, `referral_pop_up_closed`, `referral_social_media_icon_clicked`) via a direct `UPDATE edvoy_screens SET screen_name=...` by id (there is no rename endpoint in `api/screens.js`; POST with an existing id would be a duplicate-key insert). Result: GA4 `Referral` 9, GA4 `Refer and Earn` 5, Amplitude `Refer and Earn` 14 (untouched). No code change - Scout groups by `screenName` and `CAT_COLOR` already has both keys.
