@@ -36,11 +36,14 @@ Key files:
 
 ---
 
-## Current State (as of 2026-10-27)
+## Current State (as of 2026-10-30)
 
 No open blockers. DB lives in its own dedicated Neon project (`edvoy-events-agent`, not shared with any other tool). Scout images are on Cloudflare R2, not Neon — the old base64-in-Postgres transfer problem is permanently gone. The whole app sits behind a shared-password login gate (2026-07-16). Scout's canvas + the whole app's responsive layout was overhauled 2026-07-21, and a follow-up iOS-only interaction bug in the same area was fixed 2026-07-22 — both were real-device-only bugs invisible to desktop testing and to a Chromium-based simulated browser. The sidebar API Usage card's cumulative cost/token figures were corrected and simplified 2026-07-23 (see below).
 
-### Recent (2026-10-28, latest) — Scout: selecting an event on page 2 no longer jumps to page 1 (shipped + live)
+### Recent (2026-10-30, latest) — Scout uploader: shrink oversized images + show why a file failed (shipped)
+User kept getting "1 failed" with no reason on `event_slider_cta_clicked.png` (3.9 MB). **Cause:** the upload POSTs the image as a base64 JSON body (~5.2 MB for that file); Vercel rejects bodies over 4.5 MB before the function runs - so no runtime log exists - and the modal discarded status/message (`resp.ok ? ok++ : fail.push(name)`). **Fix** (`public/app.jsx`, `app.jsx?v=35`): `toUploadDataUrl()` downscales images over ~4M data-URL chars (PNG, then JPEG 0.9; ratio kept; original untouched); failures carry a reason; 5xx retries once. Verified on localhost: 9.7 MB test image stored OK, all error messages forced and shown, user's real file uploaded with no visible difference (2784x1542 -> 2313x1281 JPEG). The user's test upload of that file was deleted afterwards. Commit `e8d02b8`.
+
+### Recent (2026-10-28) — Scout: selecting an event on page 2 no longer jumps to page 1 (shipped + live)
 User reported live Scout bouncing back to page 1 whenever an event on page 2 was checked. **Cause:** selecting an event lazy-loads its image and writes it into `scoutResults`; a `useEffect([scoutResults])` reset `scoutPage` to 1 on every array change. **Fix** (`public/app.jsx`): effect now keys on `scoutResultsKey` (joined result ids), so only a real change of the result set (search/platform filter) resets; Trash/Restore set a `scoutKeepPage` ref so deleting from page 2 stays put. Cache-bust `app.jsx?v=33`. **Not browser-tested** (localhost needed the login the pane couldn't pass) — pushed on the user's instruction; worth a quick live check. Commit `6e6e524`.
 
 ### Recent (2026-10-27) — Scout Trash: soft delete, Trash tab, restore, Undo (shipped + live)
