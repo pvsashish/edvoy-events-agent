@@ -1,6 +1,6 @@
 # Operations — Edvoy Events Agent
 
-**Last updated:** 2026-10-30 (Scout upload size limit now handled automatically) · 2026-10-27 (Scout Trash — per-event delete now exists, reversible) · 2026-07-16 (shared-password login gate — new env vars + first-time setup) · earlier same day: Replace-delete now scoped to the selected platform only · 2026-07-08 (Scout self-serve uploader — removing a bad upload) · 2026-06-30 (AI provider → Anthropic Sonnet 4.6)
+**Last updated:** 2026-10-30 (troubleshooting: uploaded event not showing in Scout) · 2026-10-30 (Scout upload size limit now handled automatically) · 2026-10-27 (Scout Trash — per-event delete now exists, reversible) · 2026-07-16 (shared-password login gate — new env vars + first-time setup) · earlier same day: Replace-delete now scoped to the selected platform only · 2026-07-08 (Scout self-serve uploader — removing a bad upload) · 2026-06-30 (AI provider → Anthropic Sonnet 4.6)
 
 ## Run Locally
 ```bash
@@ -57,6 +57,7 @@ npx vercel@latest dev --listen 3333
 | `Anthropic 401` | Invalid/revoked API key | Regenerate at console.anthropic.com, update `.env` + Vercel |
 | `Anthropic 429` | Rate limit hit | `anthropicWithRetry` backs off; if persistent, slow down or check usage tier |
 | Events array empty | Model returned non-JSON | Retry; check prompt in `prompts/ga4.js` or `prompts/amplitude.js` |
+| Uploaded Scout event not visible | Before 2026-10-30 the list only reloaded on **Done**; closing via X/Esc left it stale (record was saved) | Fixed - list now refreshes on any close. If it ever recurs, reload the page; the DB record is the source of truth |
 | Scout upload: image too large | Vercel rejects request bodies >4.5 MB before the function runs (base64 adds ~33%, so files >~3.3 MB) | Handled automatically since 2026-10-30: the uploader downscales oversized images in-browser and lists a reason per failed file. If one still fails, the modal says why (session expired / server error / network). No runtime log exists for a body rejected at Vercel's edge |
 | `Method not allowed` on `/api/analyze` | GET instead of POST | Always POST |
 | History tab shows empty / localStorage fallback | `DATABASE_URL` missing | Add Neon connection string to env |
