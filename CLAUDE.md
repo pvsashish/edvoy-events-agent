@@ -40,7 +40,10 @@ Key files:
 
 No open blockers. DB lives in its own dedicated Neon project (`edvoy-events-agent`, not shared with any other tool). Scout images are on Cloudflare R2, not Neon — the old base64-in-Postgres transfer problem is permanently gone. The whole app sits behind a shared-password login gate (2026-07-16). Scout's canvas + the whole app's responsive layout was overhauled 2026-07-21, and a follow-up iOS-only interaction bug in the same area was fixed 2026-07-22 — both were real-device-only bugs invisible to desktop testing and to a Chromium-based simulated browser. The sidebar API Usage card's cumulative cost/token figures were corrected and simplified 2026-07-23 (see below).
 
-### Recent (2026-10-30, latest) — Scout uploader: list refreshes however the window closes (shipped + live)
+### Recent (2026-10-30, latest) — Scout uploader: no default platform (shipped + live)
+The upload window pre-selected **Amplitude**, so a GA4 batch could be saved as Amplitude by mistake. Now `platform` state starts `''`: neither button is selected, a "pick one to continue" hint shows, and Upload stays disabled until GA4 or Amplitude is chosen (`public/app.jsx`, `app.jsx?v=37`). Verified on localhost (no upload made). Selection persists only while the window is open.
+
+### Recent (2026-10-30) — Scout uploader: list refreshes however the window closes (shipped + live)
 User uploaded GA4 `genie_exit_screen_viewed` (Genie or Check-Eligibility); it looked missing, re-upload then said `exists`. **Cause:** `ScoutUploadModal` only called `onUploaded` -> `reloadScoutList()` from the **Done** button; X/Esc/Cancel/backdrop skipped it, so the saved record didn't show until reload (reproduced locally: DB had it, footer count stale). **Fix** (`public/app.jsx`, `app.jsx?v=36`): all close paths go through `finish()`; `reloadScoutList` now also maps `imageUrl`. QA'd on localhost; 3 throwaway `ZZ QA Test` uploads made during QA were permanently deleted (local and live share one DB). Uncertain whether the user's first message was an error rather than just "not visible" - asked. Commit `9d31e88`.
 
 ### Recent (2026-10-30) — Scout uploader: shrink oversized images + show why a file failed (shipped)

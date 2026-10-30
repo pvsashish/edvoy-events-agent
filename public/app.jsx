@@ -813,7 +813,7 @@ function AttachmentPreviewModal({ items, index, onIndexChange, onClose }) {
 function ScoutUploadModal({ space, spaceLabel, records, onClose, onUploaded }) {
   const [files, setFiles]       = React.useState([]);
   const [category, setCategory] = React.useState('');
-  const [platform, setPlatform] = React.useState('amplitude');
+  const [platform, setPlatform] = React.useState('');   // no default - the user must pick GA4 or Amplitude
   const [replace, setReplace]   = React.useState(false);
   const [dragging, setDragging] = React.useState(false);
   const [phase, setPhase]       = React.useState('pick');     // pick | uploading | done
@@ -902,7 +902,7 @@ function ScoutUploadModal({ space, spaceLabel, records, onClose, onUploaded }) {
   const uploadable = files.filter(f => deriveEvent(f.name));       // drop files that derive an empty name
   const badNameCount = files.length - uploadable.length;
   const collideCount = replace ? 0 : uploadable.filter(f => existingEvNames.has(deriveEvent(f.name))).length;
-  const canUpload = !!cat && uploadable.length > 0 && !busy;
+  const canUpload = !!cat && !!platform && uploadable.length > 0 && !busy;
 
   const doUpload = async () => {
     if (!canUpload) return;
@@ -1051,7 +1051,7 @@ function ScoutUploadModal({ space, spaceLabel, records, onClose, onUploaded }) {
                   <datalist id="scout-cat-list">{existingCats.map(c => <option key={c} value={c} />)}</datalist>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11.5, fontWeight: 700, color: T.t700, marginBottom: 6 }}>Platform</div>
+                  <div style={{ fontSize: 11.5, fontWeight: 700, color: T.t700, marginBottom: 6 }}>Platform{!platform && <span style={{ color: '#B45309', fontWeight: 600 }}> · pick one to continue</span>}</div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button onClick={() => !busy && setPlatform('ga4')} style={seg(platform === 'ga4')}><GA4Logo />GA4</button>
                     <button onClick={() => !busy && setPlatform('amplitude')} style={seg(platform === 'amplitude')}><AMPLogo />Amplitude</button>
