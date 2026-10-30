@@ -486,6 +486,35 @@ function toDataUrl(file) {
   });
 }
 
+// Vercel rejects request bodies over 4.5 MB before our code runs, and the base64 data URL
+// is ~33% bigger than the file. Keep the encoded image under this many chars so the JSON body fits.
+const UPLOAD_MAX_DATAURL = 4000000;
+// Returns a data URL that fits the limit. Files already small enough pass through untouched;
+// bigger ones are downscaled (PNG first, then JPEG) — only the copy that is sent, never the original.
+async function toUploadDataUrl(file) {
+  const orig = await toDataUrl(file);
+  if (orig.length <= UPLOAD_MAX_DATAURL) return { dataUrl: orig, shrunk: false };
+  const img = await new Promise((res, rej) => {
+    const i = new Image();
+    i.onload = () => res(i);
+    i.onerror = () => rej(new Error('Could not read image'));
+    i.src = orig;
+  });
+  let scale = Math.min(1, Math.sqrt(UPLOAD_MAX_DATAURL / orig.length) * 0.95);
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(img.naturalWidth * scale));
+    c.height = Math.max(1, Math.round(img.naturalHeight * scale));
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    const png = c.toDataURL('image/png');
+    if (png.length <= UPLOAD_MAX_DATAURL) return { dataUrl: png, shrunk: true };
+    const jpg = c.toDataURL('image/jpeg', 0.9);
+    if (jpg.length <= UPLOAD_MAX_DATAURL) return { dataUrl: jpg, shrunk: true };
+    scale *= 0.8;
+  }
+  throw new Error('Image is too large even after shrinking');
+}
+
 // Scene-change frame extraction. Instead of grabbing a fixed number of frames at
 // arbitrary times, densely sample the video and keep a frame only when the screen
 // meaningfully changes vs the last kept one — so we capture each distinct screen/state
@@ -887,14 +916,25 @@ function ScoutUploadModal({ space, spaceLabel, records, onClose, onUploaded }) {
     for (let i = 0; i < uploadable.length; i++) {
       const f = uploadable[i];
       try {
-        const dataUrl = await toDataUrl(f);
+        const { dataUrl } = await toUploadDataUrl(f);
         const ev = deriveEvent(f.name);
-        const resp = await fetch('/api/screens', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ screenName: cat, platform, image: dataUrl, events: [{ bbox: [0, 0, 0, 0], label: ev, event_name: ev }], space }),
-        });
-        resp.ok ? ok++ : fail.push(f.name);
-      } catch { fail.push(f.name); }
+        const body = JSON.stringify({ screenName: cat, platform, image: dataUrl, events: [{ bbox: [0, 0, 0, 0], label: ev, event_name: ev }], space });
+        const post = () => fetch('/api/screens', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+        let resp = await post();
+        if (resp.status >= 500) resp = await post();   // Neon/R2 hiccups are usually transient — retry once
+        if (resp.ok) ok++;
+        else {
+          let detail = '';
+          try { detail = (await resp.json()).error || ''; } catch {}
+          const reason = resp.status === 401 ? 'Session expired - refresh the page and sign in again'
+            : resp.status === 413 ? `Too large for the server (${(f.size / 1048576).toFixed(1)} MB)`
+            : resp.status >= 500 ? `Server error${detail ? ': ' + detail : ''} - try again`
+            : `Rejected (${resp.status})${detail ? ': ' + detail : ''}`;
+          fail.push({ name: f.name, reason });
+        }
+      } catch (e) {
+        fail.push({ name: f.name, reason: e instanceof TypeError ? 'Network error - check your connection and retry' : (e.message || 'Unknown error') });
+      }
       setProgress({ done: i + 1, total: uploadable.length });
     }
     setResult({ ok, fail });
@@ -955,7 +995,12 @@ function ScoutUploadModal({ space, spaceLabel, records, onClose, onUploaded }) {
               {result.fail.length > 0 && (
                 <div style={{ marginTop: 12, textAlign: 'left', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '10px 14px' }}>
                   <div style={{ fontSize: 12.5, fontWeight: 700, color: '#B45309', marginBottom: 6 }}>{result.fail.length} failed</div>
-                  {result.fail.slice(0, 6).map(n => <div key={n} style={{ fontSize: 11.5, color: '#92400E', fontFamily: 'var(--font-mono)' }}>{n}</div>)}
+                  {result.fail.slice(0, 6).map(f => (
+                    <div key={f.name} style={{ marginTop: 4 }}>
+                      <div style={{ fontSize: 11.5, color: '#92400E', fontFamily: 'var(--font-mono)' }}>{f.name}</div>
+                      <div style={{ fontSize: 11.5, color: '#B45309' }}>{f.reason}</div>
+                    </div>
+                  ))}
                   {result.fail.length > 6 && <div style={{ fontSize: 11.5, color: '#92400E' }}>+{result.fail.length - 6} more</div>}
                 </div>
               )}
